@@ -1,0 +1,60 @@
+.tcm-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  position: relative;
+}
+
+.tcm-resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 6px;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  opacity: 0;
+}
+
+.tcm-table-wrap th:hover .tcm-resizer,
+.tcm-resizer.is-resizing {
+  opacity: 1;
+  background: var(--mantine-color-blue-5);
+}
+
+.tcm-table-wrap th {
+  position: relative;
+}
+
+.tcm-table-wrap tbody tr.tcm-table-row td {
+  transition: background-color 120ms ease;
+  background: var(--mantine-color-body);
+}
+
+.tcm-table-wrap tbody tr.tcm-table-row:hover td {
+  background: light-dark(
+    var(--mantine-color-blue-0),
+    var(--mantine-color-dark-5)
+  );
+}
+
+.tcm-table-wrap tbody tr.tcm-table-row.is-selected td {
+  background: var(--mantine-color-blue-light);
+}
+
+.tcm-table-wrap tbody tr.tcm-table-row.is-selected:hover td {
+  background: light-dark(
+    var(--mantine-color-blue-1),
+    var(--mantine-color-blue-9)
+  );
+}
+
+.tcm-table-wrap tbody tr.tcm-table-row.is-dragging td {
+  background: light-dark(
+    var(--mantine-color-blue-1),
+    var(--mantine-color-dark-4)
+  );
+  box-shadow: var(--mantine-shadow-sm);
+  z-index: 2;
+  position: relative;
+}

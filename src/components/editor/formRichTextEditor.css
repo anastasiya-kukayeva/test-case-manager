@@ -1,0 +1,340 @@
+.tcm-rich-text-editor {
+  border: 1px solid var(--mantine-color-gray-3);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--mantine-color-body);
+}
+
+.tcm-rte-toolbar {
+  padding: 8px;
+  border-bottom: 1px solid var(--mantine-color-gray-3);
+  background: var(--mantine-color-gray-0);
+  flex-shrink: 0;
+}
+
+.tcm-rich-text-editor--scrollable {
+  display: flex;
+  flex-direction: column;
+}
+
+.tcm-rich-text-editor--scrollable .tcm-rte-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.tcm-rich-text-editor--scrollable .tcm-rte-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.tcm-rich-text-editor .tiptap,
+.tcm-rich-text-editor .ProseMirror,
+.tcm-rte-prose {
+  outline: none;
+  /* Extra left padding so nested list markers are not clipped by overflow. */
+  padding: 12px 14px 12px 1.5rem;
+  min-height: 140px;
+}
+
+.tcm-rich-text-editor .ProseMirror img.tcm-rte-image,
+.tcm-rich-text-editor .ProseMirror img,
+.tcm-rich-text-editor img.tcm-rte-image,
+.tcm-rich-text-editor img,
+.tcm-rte-image-wrap img.tcm-rte-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
+  border-radius: 6px;
+  border: 1px solid var(--mantine-color-gray-3);
+}
+
+.tcm-rte-image-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0.75rem 0;
+}
+
+.tcm-rte-image-row {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  max-width: 100%;
+  gap: 0;
+}
+
+.tcm-rte-image-frame {
+  position: relative;
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: calc(100% - 28px);
+}
+
+.tcm-rte-image-gutter {
+  flex: 1 1 auto;
+  min-width: 28px;
+  align-self: stretch;
+  cursor: text;
+  /* Invisible hit area to the right of the image — click places caret below. */
+  background: transparent;
+}
+
+.tcm-rte-image-gutter:hover {
+  background: color-mix(in srgb, var(--mantine-color-blue-1) 55%, transparent);
+}
+
+.tcm-rte-image-wrap.is-selected img {
+  outline: 2px solid var(--mantine-color-blue-5);
+  outline-offset: 2px;
+}
+
+.tcm-rte-image-wrap.is-resizing {
+  cursor: nwse-resize;
+}
+
+.tcm-rte-image-delete {
+  position: absolute !important;
+  top: 8px;
+  right: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  box-shadow: var(--mantine-shadow-sm);
+}
+
+.tcm-rte-image-wrap:hover .tcm-rte-image-delete,
+.tcm-rte-image-wrap.is-selected .tcm-rte-image-delete {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tcm-rte-image-wrap .tcm-image-resize-handle {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  z-index: 3;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 75%);
+  border-radius: 4px;
+  background: rgb(15 23 42 / 72%);
+  color: white;
+  cursor: nwse-resize;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  box-shadow: var(--mantine-shadow-sm);
+}
+
+.tcm-rte-image-wrap:hover .tcm-image-resize-handle,
+.tcm-rte-image-wrap.is-selected .tcm-image-resize-handle,
+.tcm-rte-image-wrap.is-resizing .tcm-image-resize-handle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tcm-rte-image-wrap .tcm-image-resize-handle:hover,
+.tcm-rte-image-wrap .tcm-image-resize-handle:focus-visible {
+  background: rgb(37 99 235 / 90%);
+  outline: none;
+}
+
+.tcm-rich-text-editor .tcm-rte-prose--zoomable-images .tcm-rte-image-wrap:not(.is-resizing),
+.tcm-rich-text-editor .tcm-rte-prose--zoomable-images img.tcm-rte-image,
+.tcm-rich-text-editor .tcm-rte-prose--zoomable-images img,
+.tcm-rich-text-preview--zoomable img {
+  cursor: zoom-in;
+}
+
+.tcm-rich-text-editor .ProseMirror pre,
+.tcm-rich-text-editor pre {
+  position: relative;
+  margin: 0.75rem 0;
+  padding: 1.7rem 0.9rem 0.75rem;
+  border-radius: 8px;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.tcm-rich-text-editor pre::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  font-family: var(--mantine-font-family, inherit);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 0.28rem 0.55rem;
+  border-bottom-right-radius: 6px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.tcm-rich-text-editor pre.tcm-code-block::before,
+.tcm-rich-text-editor pre:not(.tcm-log-block):not(:has(code.language-log))::before {
+  content: 'КОД';
+  background: #228be6;
+  color: #fff;
+}
+
+.tcm-rich-text-editor pre.tcm-log-block::before,
+.tcm-rich-text-editor pre[data-type='log']::before,
+.tcm-rich-text-editor pre:has(code.language-log)::before {
+  content: 'ЛОГ';
+  background: #fab005;
+  color: #1a1a1a;
+}
+
+/* Consecutive one-line fences: keep КОД/ЛОГ only on the first block. */
+.tcm-rich-text-editor pre:not(.tcm-log-block):not(:has(code.language-log))
+  + pre:not(.tcm-log-block):not(:has(code.language-log))::before,
+.tcm-rich-text-editor pre.tcm-log-block + pre.tcm-log-block::before,
+.tcm-rich-text-editor pre:has(code.language-log) + pre:has(code.language-log)::before {
+  content: none;
+}
+
+.tcm-rich-text-editor pre:not(.tcm-log-block):not(:has(code.language-log))
+  + pre:not(.tcm-log-block):not(:has(code.language-log)),
+.tcm-rich-text-editor pre.tcm-log-block + pre.tcm-log-block,
+.tcm-rich-text-editor pre:has(code.language-log) + pre:has(code.language-log) {
+  padding-top: 0.75rem;
+}
+
+.tcm-rich-text-editor .ProseMirror pre.tcm-code-block,
+.tcm-rich-text-editor pre.tcm-code-block,
+.tcm-rich-text-editor .ProseMirror pre:not(.tcm-log-block):not(:has(code.language-log)),
+.tcm-rich-text-editor pre:not(.tcm-log-block):not(:has(code.language-log)) {
+  background: #f4f6f8;
+  border: 1px solid #d8dee6;
+  border-left: 4px solid #228be6;
+}
+
+.tcm-rich-text-editor .ProseMirror pre.tcm-log-block,
+.tcm-rich-text-editor pre.tcm-log-block,
+.tcm-rich-text-editor pre[data-type='log'],
+.tcm-rich-text-editor pre:has(code.language-log) {
+  background: #1e1e1e;
+  color: #e6e6e6;
+  border: 1px solid #333;
+  border-left: 4px solid #fab005;
+}
+
+.tcm-rich-text-editor .ProseMirror pre code,
+.tcm-rich-text-editor pre code {
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.tcm-rich-text-editor .ProseMirror ul,
+.tcm-rich-text-editor .ProseMirror ol {
+  margin: 0.35rem 0;
+  padding-left: 1.35rem;
+}
+
+.tcm-rich-text-editor .ProseMirror li {
+  margin: 0.2rem 0;
+}
+
+.tcm-rich-text-editor .ProseMirror li > p {
+  margin: 0;
+}
+
+/*
+ * Nested bullets via ::before (• ○ ▪ ▫ ▸) so markers stay visible inside
+ * scrollable "Результат проверки" (overflow clips native outside markers).
+ */
+.tcm-rich-text-editor .ProseMirror ul {
+  list-style: none;
+}
+
+.tcm-rich-text-editor .ProseMirror ul > li {
+  position: relative;
+  padding-left: 0.25rem;
+}
+
+.tcm-rich-text-editor .ProseMirror ul > li::before {
+  content: '•';
+  position: absolute;
+  left: -1.15rem;
+  top: 0;
+  width: 1rem;
+  text-align: center;
+  color: var(--mantine-color-dark-4);
+  font-weight: 700;
+  line-height: 1.55;
+  pointer-events: none;
+}
+
+.tcm-rich-text-editor .ProseMirror ul ul {
+  margin-top: 0.15rem;
+  margin-bottom: 0.15rem;
+  padding-left: 1.35rem;
+}
+
+.tcm-rich-text-editor .ProseMirror ul ul > li::before {
+  content: '○';
+  font-weight: 500;
+}
+
+.tcm-rich-text-editor .ProseMirror ul ul ul > li::before {
+  content: '▪';
+  font-size: 0.85em;
+}
+
+.tcm-rich-text-editor .ProseMirror ul ul ul ul > li::before {
+  content: '▫';
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+.tcm-rich-text-editor .ProseMirror ul ul ul ul ul > li::before {
+  content: '▸';
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+.tcm-rich-text-editor .ProseMirror ol {
+  list-style-type: decimal;
+  list-style-position: outside;
+}
+
+.tcm-rich-text-editor .ProseMirror ol ol {
+  list-style-type: lower-alpha;
+  padding-left: 1.35rem;
+}
+
+.tcm-rich-text-editor .ProseMirror ol ol ol {
+  list-style-type: lower-roman;
+}
+
+.tcm-rich-text-editor .ProseMirror ol ol ol ol {
+  list-style-type: decimal;
+}
+
+.tcm-rich-text-editor .ProseMirror ol ol ol ol ol {
+  list-style-type: lower-alpha;
+}
+
+/* Images inside list items should not stretch past the list column */
+.tcm-rich-text-editor .ProseMirror li .tcm-rte-image-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0.4rem 0;
+}

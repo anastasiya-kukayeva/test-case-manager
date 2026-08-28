@@ -1,0 +1,105 @@
+.tcm-screenshots-zone:focus {
+  outline: 2px solid var(--mantine-color-blue-5);
+  outline-offset: 2px;
+}
+
+.tcm-screenshots-zone.is-paste-ready {
+  box-shadow: inset 0 0 0 1px var(--mantine-color-blue-3);
+}
+
+.tcm-screenshot-thumb {
+  position: relative;
+  cursor: zoom-in;
+  overflow: hidden;
+  border-radius: var(--mantine-radius-sm);
+}
+
+.tcm-screenshot-thumb.is-resizing {
+  cursor: nwse-resize;
+}
+
+.tcm-screenshot-zoom {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 35%);
+  color: white;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.tcm-screenshot-thumb:hover:not(.is-resizing) .tcm-screenshot-zoom {
+  opacity: 1;
+}
+
+.tcm-screenshot-thumb.is-resizing .tcm-screenshot-zoom {
+  opacity: 0;
+}
+
+.tcm-screenshot-delete {
+  position: absolute !important;
+  top: 6px;
+  right: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 2;
+  box-shadow: var(--mantine-shadow-sm);
+}
+
+.tcm-screenshot-thumb:hover .tcm-screenshot-delete {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tcm-image-resize-handle {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  z-index: 3;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 75%);
+  border-radius: 4px;
+  background: rgb(15 23 42 / 72%);
+  color: white;
+  cursor: nwse-resize;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  box-shadow: var(--mantine-shadow-sm);
+}
+
+.tcm-screenshot-thumb:hover .tcm-image-resize-handle,
+.tcm-screenshot-thumb.is-resizing .tcm-image-resize-handle,
+.tcm-rte-image-wrap:hover .tcm-image-resize-handle,
+.tcm-rte-image-wrap.is-selected .tcm-image-resize-handle,
+.tcm-rte-image-wrap.is-resizing .tcm-image-resize-handle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tcm-image-resize-handle:hover,
+.tcm-image-resize-handle:focus-visible {
+  background: rgb(37 99 235 / 90%);
+  outline: none;
+}
+
+.tcm-screenshot-dragging {
+  box-shadow: var(--mantine-shadow-md);
+}
+
+.tcm-screenshot-overlay {
+  box-shadow: var(--mantine-shadow-lg);
+  opacity: 0.95;
+  max-width: 220px;
+}
+

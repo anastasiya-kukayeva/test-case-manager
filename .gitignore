@@ -1,0 +1,17 @@
+node_modules
+dist
+dist-electron
+release
+*.local
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*
+!.env.example
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.tsbuildinfo
+
+_tmp_import/
