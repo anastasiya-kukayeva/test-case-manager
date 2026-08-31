@@ -14,10 +14,19 @@ export const TEST_OUTCOME_LABELS: Record<Exclude<TestResultOutcome, null>, strin
   failed: 'Неуспешно',
 };
 
+export const TEST_OUTCOME_UNSET_LABEL = 'Не выбран';
+
 export const TEST_OUTCOME_COLORS: Record<Exclude<TestResultOutcome, null>, string> = {
   passed: 'green',
   failed: 'red',
 };
+
+export function getTestOutcomeLabel(outcome: TestResultOutcome): string {
+  if (outcome === 'passed' || outcome === 'failed') {
+    return TEST_OUTCOME_LABELS[outcome];
+  }
+  return TEST_OUTCOME_UNSET_LABEL;
+}
 
 export const TEST_CASE_PRIORITY_LABELS: Record<TestCasePriority, string> = {
   low: 'Низкий',

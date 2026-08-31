@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Box, Checkbox, Group, Table, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Box, Checkbox, Group, Table, Text, Tooltip } from '@mantine/core';
 import {
   IconArrowDown,
   IconArrowUp,
@@ -26,10 +26,8 @@ import {
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import type { TestCaseTableRow } from '@/application/testCases/filterTestCases';
-import {
-  TEST_OUTCOME_COLORS,
-  TEST_OUTCOME_LABELS,
-} from '@/domain/labels/testCaseLabels';
+import { TestOutcomeControl } from '@/components/testCases/TestOutcomeControl';
+import type { TestResultOutcome } from '@/domain/types';
 import { useTestCaseTableStore } from '@/stores/useTestCaseTableStore';
 import '@/components/testCases/testCasesTable.css';
 
@@ -39,6 +37,7 @@ type TestCasesTableProps = {
   onDuplicate: (row: TestCaseTableRow) => void;
   onDelete: (ids: string[]) => void;
   onExportDocx?: (row: TestCaseTableRow) => void;
+  onOutcomeChange?: (row: TestCaseTableRow, outcome: TestResultOutcome) => void;
   rowSelection: RowSelectionState;
   onRowSelectionChange: OnChangeFn<RowSelectionState>;
 };
@@ -59,6 +58,7 @@ export function TestCasesTable({
   onDuplicate,
   onDelete,
   onExportDocx,
+  onOutcomeChange,
   rowSelection,
   onRowSelectionChange,
 }: TestCasesTableProps) {
@@ -143,21 +143,18 @@ export function TestCasesTable({
             value === 'passed' ? 2 : value === 'failed' ? 1 : 0;
           return rank(rowA.original.testOutcome) - rank(rowB.original.testOutcome);
         },
-        cell: ({ getValue }) => {
-          const outcome = getValue() as TestCaseTableRow['testOutcome'];
-          if (outcome === 'passed' || outcome === 'failed') {
-            return (
-              <Badge color={TEST_OUTCOME_COLORS[outcome]} variant="light">
-                {TEST_OUTCOME_LABELS[outcome]}
-              </Badge>
-            );
-          }
-          return (
-            <Text size="sm" c="dimmed">
-              Не выбран
-            </Text>
-          );
-        },
+        cell: ({ row }) => (
+          <TestOutcomeControl
+            value={row.original.testOutcome}
+            onChange={
+              onOutcomeChange
+                ? (outcome) => {
+                    onOutcomeChange(row.original, outcome);
+                  }
+                : undefined
+            }
+          />
+        ),
       },
       {
         id: 'actions',
@@ -199,7 +196,7 @@ export function TestCasesTable({
         ),
       },
     ],
-    [onDelete, onDuplicate, onEdit, onExportDocx],
+    [onDelete, onDuplicate, onEdit, onExportDocx, onOutcomeChange],
   );
 
   const table = useReactTable({
@@ -330,7 +327,10 @@ export function TestCasesTable({
               >
                 {row.getVisibleCells().map((cell) => {
                   const isPinned = cell.column.getIsPinned();
-                  const isInteractive = cell.column.id === 'select' || cell.column.id === 'actions';
+                  const isInteractive =
+                    cell.column.id === 'select' ||
+                    cell.column.id === 'actions' ||
+                    cell.column.id === 'testOutcome';
                   return (
                     <Table.Td
                       key={cell.id}

@@ -4,7 +4,7 @@ import { projectActions } from '@/application/project/projectActions';
 import { nextTestCaseNumber } from '@/application/testCases/renumberTestCases';
 import { confirmAction } from '@/application/ui/confirmAction';
 import { createEmptyTestCase } from '@/domain/factories/createEntities';
-import type { TestCase } from '@/domain/types';
+import type { TestCase, TestResultOutcome } from '@/domain/types';
 import { useProjectStore } from '@/stores/useProjectStore';
 
 export type TestCaseFormValues = {
@@ -160,6 +160,28 @@ export const testCaseActions = {
       return true;
     } catch (error) {
       notifyError(error, { title: 'Не удалось удалить' });
+      return false;
+    }
+  },
+
+  setOutcome(id: string, outcome: TestResultOutcome): boolean {
+    try {
+      const current = requireOpenProject();
+      const existing = current.document.testCases.find((item) => item.id === id);
+      if (!existing) {
+        throw new AppError('NOT_FOUND', 'Тест-кейс не найден');
+      }
+      if (existing.testOutcome === outcome) {
+        return true;
+      }
+
+      useProjectStore.getState().updateTestCase(id, {
+        testOutcome: outcome,
+      });
+      void projectActions.saveIfDirty({ silent: true });
+      return true;
+    } catch (error) {
+      notifyError(error, { title: 'Не удалось изменить результат' });
       return false;
     }
   },

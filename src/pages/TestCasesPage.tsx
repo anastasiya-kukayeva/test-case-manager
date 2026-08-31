@@ -116,6 +116,9 @@ export function TestCasesPage() {
           onDelete={(row) => {
             void testCaseActions.remove([row.id]);
           }}
+          onOutcomeChange={(row, outcome) => {
+            testCaseActions.setOutcome(row.id, outcome);
+          }}
           onReorder={(orderedIds) => {
             testCaseActions.reorder(orderedIds);
           }}

@@ -25,6 +25,7 @@ import { DuplicateTestCaseModal } from '@/components/testCases/DuplicateTestCase
 import { ImportWordTestCasesButton } from '@/components/testCases/ImportWordTestCasesButton';
 import { TestCasesListTable } from '@/components/testCases/TestCasesListTable';
 import { FadeIn } from '@/components/ui/FadeIn';
+import type { TestResultOutcome } from '@/domain/types';
 import { testCaseEditorPath } from '@/routes/paths';
 import { useAppStore } from '@/stores/useAppStore';
 import { useProjectStore } from '@/stores/useProjectStore';
@@ -125,6 +126,29 @@ export function AllTestCasesPage() {
     }
   };
 
+  const changeOutcome = async (row: CatalogTestCaseRow, outcome: TestResultOutcome) => {
+    const ok = await ensureTaskOpen(row);
+    if (!ok) {
+      return;
+    }
+
+    const updated = testCaseActions.setOutcome(row.id, outcome);
+    if (!updated) {
+      return;
+    }
+
+    setGroups((prev) =>
+      prev.map((group) => ({
+        ...group,
+        testCases: group.testCases.map((item) =>
+          item.id === row.id
+            ? { ...item, testOutcome: outcome, updatedAt: new Date().toISOString() }
+            : item,
+        ),
+      })),
+    );
+  };
+
   const totalCount = groups.reduce((sum, group) => sum + group.testCases.length, 0);
 
   return (
@@ -214,6 +238,12 @@ export function AllTestCasesPage() {
                       const full = group.testCases.find((item) => item.id === row.id);
                       if (full) {
                         void deleteRow(full);
+                      }
+                    }}
+                    onOutcomeChange={(row, outcome) => {
+                      const full = group.testCases.find((item) => item.id === row.id);
+                      if (full) {
+                        void changeOutcome(full, outcome);
                       }
                     }}
                     onReorder={

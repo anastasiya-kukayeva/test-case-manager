@@ -1,4 +1,10 @@
 import { Group, Paper, SegmentedControl, Text } from '@mantine/core';
+import { IconCheck, IconCircle, IconX } from '@tabler/icons-react';
+import {
+  TEST_OUTCOME_LABELS,
+  TEST_OUTCOME_UNSET_LABEL,
+  getTestOutcomeLabel,
+} from '@/domain/labels/testCaseLabels';
 import type { TestResultOutcome } from '@/domain/types';
 
 type TestOutcomeSelectorProps = {
@@ -36,7 +42,7 @@ export function TestOutcomeSelector({ value, onChange }: TestOutcomeSelectorProp
           <Text size="sm" c="dimmed">
             Индикатор:{' '}
             <Text span fw={700} c={color}>
-              {value === 'passed' ? 'Успешно' : value === 'failed' ? 'Неуспешно' : 'Не выбран'}
+              {getTestOutcomeLabel(value)}
             </Text>
           </Text>
         </div>
@@ -50,9 +56,33 @@ export function TestOutcomeSelector({ value, onChange }: TestOutcomeSelectorProp
             onChange(next as 'passed' | 'failed');
           }}
           data={[
-            { label: 'Не выбран', value: 'none' },
-            { label: '✅ Успешно', value: 'passed' },
-            { label: '❌ Неуспешно', value: 'failed' },
+            {
+              label: (
+                <Group gap={6} wrap="nowrap" justify="center">
+                  <IconCircle size={14} />
+                  {TEST_OUTCOME_UNSET_LABEL}
+                </Group>
+              ),
+              value: 'none',
+            },
+            {
+              label: (
+                <Group gap={6} wrap="nowrap" justify="center">
+                  <IconCheck size={14} />
+                  {TEST_OUTCOME_LABELS.passed}
+                </Group>
+              ),
+              value: 'passed',
+            },
+            {
+              label: (
+                <Group gap={6} wrap="nowrap" justify="center">
+                  <IconX size={14} />
+                  {TEST_OUTCOME_LABELS.failed}
+                </Group>
+              ),
+              value: 'failed',
+            },
           ]}
           color={value === 'passed' ? 'green' : value === 'failed' ? 'red' : 'gray'}
         />

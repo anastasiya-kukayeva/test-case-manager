@@ -17,12 +17,13 @@ import { ActionIcon, Box, Group, Table, Text, Tooltip } from '@mantine/core';
 import { IconCopy, IconEdit, IconGripVertical, IconTrash } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import type { CSSProperties } from 'react';
-import type { TestCase } from '@/domain/types';
+import { TestOutcomeControl } from '@/components/testCases/TestOutcomeControl';
+import type { TestCase, TestResultOutcome } from '@/domain/types';
 import '@/components/testCases/testCasesTable.css';
 
 export type TestCasesListRow = Pick<
   TestCase,
-  'id' | 'number' | 'title' | 'goal' | 'createdAt' | 'updatedAt'
+  'id' | 'number' | 'title' | 'goal' | 'createdAt' | 'updatedAt' | 'testOutcome'
 >;
 
 type TestCasesListTableProps = {
@@ -30,6 +31,7 @@ type TestCasesListTableProps = {
   onOpen: (row: TestCasesListRow) => void;
   onDelete?: (row: TestCasesListRow) => void;
   onDuplicate?: (row: TestCasesListRow) => void;
+  onOutcomeChange?: (row: TestCasesListRow, outcome: TestResultOutcome) => void;
   /** When set, rows become draggable; called with ids in the new visual order. */
   onReorder?: (orderedIds: string[]) => void;
   openingId?: string | null;
@@ -49,6 +51,7 @@ type SortableRowProps = {
   onOpen: (row: TestCasesListRow) => void;
   onDelete?: (row: TestCasesListRow) => void;
   onDuplicate?: (row: TestCasesListRow) => void;
+  onOutcomeChange?: (row: TestCasesListRow, outcome: TestResultOutcome) => void;
   openingId: string | null;
   deletingId: string | null;
   duplicatingId: string | null;
@@ -61,6 +64,7 @@ function SortableTestCaseRow({
   onOpen,
   onDelete,
   onDuplicate,
+  onOutcomeChange,
   openingId,
   deletingId,
   duplicatingId,
@@ -121,6 +125,23 @@ function SortableTestCaseRow({
       <Table.Td>{dayjs(row.createdAt).format('DD.MM.YYYY HH:mm')}</Table.Td>
       <Table.Td>{dayjs(row.updatedAt).format('DD.MM.YYYY HH:mm')}</Table.Td>
       <Table.Td
+        style={{ width: 118 }}
+        onClick={(event) => {
+          event.stopPropagation();
+        }}
+      >
+        <TestOutcomeControl
+          value={row.testOutcome}
+          onChange={
+            onOutcomeChange
+              ? (outcome) => {
+                  onOutcomeChange(row, outcome);
+                }
+              : undefined
+          }
+        />
+      </Table.Td>
+      <Table.Td
         style={{ width: actionsWidth }}
         onClick={(event) => {
           event.stopPropagation();
@@ -170,6 +191,7 @@ export function TestCasesListTable({
   onOpen,
   onDelete,
   onDuplicate,
+  onOutcomeChange,
   onReorder,
   openingId = null,
   deletingId = null,
@@ -220,13 +242,14 @@ export function TestCasesListTable({
             <Table.Th>Цель / название</Table.Th>
             <Table.Th style={{ width: 160 }}>Создан</Table.Th>
             <Table.Th style={{ width: 160 }}>Изменён</Table.Th>
+            <Table.Th style={{ width: 118 }}>Результат</Table.Th>
             <Table.Th style={{ width: actionsColWidth }}> </Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {rows.length === 0 ? (
             <Table.Tr>
-              <Table.Td colSpan={5}>
+              <Table.Td colSpan={6}>
                 <Text c="dimmed" ta="center" py="lg">
                   {emptyText}
                 </Text>
@@ -242,6 +265,7 @@ export function TestCasesListTable({
                 onOpen={onOpen}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
+                onOutcomeChange={onOutcomeChange}
                 openingId={openingId}
                 deletingId={deletingId}
                 duplicatingId={duplicatingId}
