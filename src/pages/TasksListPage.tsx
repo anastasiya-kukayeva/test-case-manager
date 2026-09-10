@@ -11,24 +11,32 @@ import {
   Tooltip,
 } from '@mantine/core';
 import {
+  IconCopy,
+  IconArrowsMove,
   IconDeviceFloppy,
   IconFolderOpen,
   IconPlus,
   IconSearch,
-  IconTrash,
   IconX,
 } from '@tabler/icons-react';
-import dayjs from 'dayjs';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { notifySuccess } from '@/application/errors/errorHandler';
 import { projectActions } from '@/application/project/projectActions';
+import { taskHierarchyActions } from '@/application/project/taskHierarchyActions';
 import { confirmAction } from '@/application/ui/confirmAction';
 import { CreateProjectModal } from '@/components/project/CreateProjectModal';
+import { MoveTaskModal } from '@/components/tasks/MoveTaskModal';
+import { TaskTreeList } from '@/components/tasks/TaskTreeList';
 import { FadeIn } from '@/components/ui/FadeIn';
 import type { RecentTask } from '@/domain/types';
 import { getTaskShortLabel } from '@/domain/utils/taskDisplay';
+import {
+  buildTaskTree,
+  collectExpandableIds,
+  filterTaskTree,
+} from '@/domain/utils/taskTree';
 import { appStorageService } from '@/infrastructure/storage/appStorageService';
 import { AppRoutes } from '@/routes/paths';
 import { useAppStore } from '@/stores/useAppStore';
@@ -53,6 +61,9 @@ export function TasksListPage() {
   const current = useProjectStore((state) => state.current);
   const [createOpened, setCreateOpened] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
+  const [moveTask, setMoveTask] = useState<RecentTask | null>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
   const reduceMotion = useReducedMotion();
 
   const showUnsaved =
@@ -63,13 +74,42 @@ export function TasksListPage() {
       filePath: '',
     });
 
-  const filteredProjects = useMemo(
-    () => recentProjects.filter((task: RecentTask) => matchesTaskQuery(searchQuery, task)),
-    [recentProjects, searchQuery],
-  );
+  const tasksForTree = useMemo(() => {
+    if (!current) {
+      return recentProjects;
+    }
+    return recentProjects.map((item) => {
+      const sameFile = Boolean(current.filePath) && item.filePath === current.filePath;
+      const sameId = item.id === current.document.meta.id;
+      if (!sameFile && !sameId) {
+        return item;
+      }
+      return {
+        ...item,
+        name: current.document.meta.name,
+        shortName: current.document.meta.shortName || item.shortName,
+        parentTaskId: current.document.meta.parentTaskId ?? item.parentTaskId,
+      };
+    });
+  }, [recentProjects, current]);
+
+  const taskTree = useMemo(() => {
+    const tree = buildTaskTree(tasksForTree);
+    if (!searchQuery.trim()) {
+      return tree;
+    }
+    return filterTaskTree(tree, (task) => matchesTaskQuery(searchQuery, task));
+  }, [tasksForTree, searchQuery]);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      return;
+    }
+    setExpandedIds(collectExpandableIds(taskTree));
+  }, [searchQuery, taskTree]);
 
   const listEmpty = recentProjects.length === 0 && !(current && !current.filePath);
-  const noMatches = !listEmpty && !showUnsaved && filteredProjects.length === 0;
+  const noMatches = !listEmpty && !showUnsaved && taskTree.length === 0;
 
   const handleRemoveRecent = async (filePath: string, name: string) => {
     const confirmed = await confirmAction({
@@ -105,6 +145,72 @@ export function TasksListPage() {
     if (ok) {
       void navigate(AppRoutes.taskCurrent);
     }
+  };
+
+  const unsavedAsRecent = (): RecentTask | null => {
+    if (!current || current.filePath) {
+      return null;
+    }
+    return {
+      id: current.document.meta.id,
+      name: current.document.meta.name,
+      shortName: current.document.meta.shortName || undefined,
+      filePath: '',
+      openedAt: current.document.meta.updatedAt,
+      parentTaskId: current.document.meta.parentTaskId ?? null,
+    };
+  };
+
+  const handleCopy = async (task: RecentTask) => {
+    setBusyKey(task.filePath || task.id);
+    try {
+      await taskHierarchyActions.duplicate({
+        id: task.id,
+        name: task.name,
+        shortName: task.shortName,
+        filePath: task.filePath || null,
+        parentTaskId: task.parentTaskId,
+      });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleMoveConfirm = async (parentTaskId: string | null) => {
+    if (!moveTask) {
+      return;
+    }
+    setBusyKey(moveTask.filePath || moveTask.id);
+    try {
+      const ok = await taskHierarchyActions.move(
+        {
+          id: moveTask.id,
+          name: moveTask.name,
+          shortName: moveTask.shortName,
+          filePath: moveTask.filePath || null,
+          parentTaskId: moveTask.parentTaskId,
+        },
+        parentTaskId,
+      );
+      if (ok) {
+        setMoveTask(null);
+        if (parentTaskId) {
+          setExpandedIds((currentIds) =>
+            currentIds.includes(parentTaskId) ? currentIds : [...currentIds, parentTaskId],
+          );
+        }
+      }
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleToggle = (taskId: string) => {
+    setExpandedIds((currentIds) =>
+      currentIds.includes(taskId)
+        ? currentIds.filter((id) => id !== taskId)
+        : [...currentIds, taskId],
+    );
   };
 
   return (
@@ -209,84 +315,72 @@ export function TasksListPage() {
                           Только в памяти — сохраните, чтобы не потерять
                         </Text>
                       </div>
-                      <Button
-                        size="xs"
-                        variant="filled"
-                        leftSection={<IconDeviceFloppy size={14} />}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void projectActions.saveAs().then((ok) => {
-                            if (ok) {
-                              void navigate(AppRoutes.taskCurrent);
-                            }
-                          });
-                        }}
-                      >
-                        Сохранить
-                      </Button>
+                      <Group gap="xs" wrap="nowrap">
+                        <Tooltip label="Копировать задачу">
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            aria-label="Копировать задачу"
+                            loading={Boolean(current && busyKey === current.document.meta.id)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              const unsaved = unsavedAsRecent();
+                              if (unsaved) {
+                                void handleCopy(unsaved);
+                              }
+                            }}
+                          >
+                            <IconCopy size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Переместить в другую задачу">
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            aria-label="Переместить задачу"
+                            disabled={recentProjects.length === 0}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setMoveTask(unsavedAsRecent());
+                            }}
+                          >
+                            <IconArrowsMove size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Button
+                          size="xs"
+                          variant="filled"
+                          leftSection={<IconDeviceFloppy size={14} />}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void projectActions.saveAs().then((ok) => {
+                              if (ok) {
+                                void navigate(AppRoutes.taskCurrent);
+                              }
+                            });
+                          }}
+                        >
+                          Сохранить
+                        </Button>
+                      </Group>
                     </Group>
                   </motion.div>
                 ) : null}
 
-                {filteredProjects.map((task) => {
-                  const isCurrent =
-                    Boolean(current?.filePath && current.filePath === task.filePath) ||
-                    current?.document.meta.id === task.id;
-
-                  return (
-                    <motion.div
-                      key={`${task.id}-${task.filePath}`}
-                      layout={!reduceMotion}
-                      initial={reduceMotion ? false : { opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <Group
-                        justify="space-between"
-                        wrap="nowrap"
-                        py="sm"
-                        px="xs"
-                        style={{
-                          cursor: 'pointer',
-                          borderRadius: 'var(--mantine-radius-md)',
-                          background: isCurrent
-                            ? 'var(--mantine-color-blue-light)'
-                            : undefined,
-                        }}
-                        className="tcm-task-list-row"
-                        onClick={() => void openTask(task.filePath)}
-                      >
-                        <div style={{ minWidth: 0 }}>
-                          <Text size="sm" fw={600} truncate>
-                            {getTaskShortLabel(task)}
-                          </Text>
-                          <Text size="xs" c="dimmed" truncate>
-                            {task.filePath}
-                          </Text>
-                        </div>
-                        <Group gap="xs" wrap="nowrap">
-                          <Text size="xs" c="dimmed">
-                            {dayjs(task.openedAt).format('DD.MM.YYYY HH:mm')}
-                          </Text>
-                          <Tooltip label="Убрать из списка">
-                            <ActionIcon
-                              variant="subtle"
-                              color="red"
-                              aria-label="Remove recent"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                void handleRemoveRecent(task.filePath, task.name);
-                              }}
-                            >
-                              <IconTrash size={16} />
-                            </ActionIcon>
-                          </Tooltip>
-                        </Group>
-                      </Group>
-                    </motion.div>
-                  );
-                })}
+                {taskTree.length > 0 ? (
+                  <TaskTreeList
+                    key="task-tree"
+                    nodes={taskTree}
+                    current={current}
+                    expandedIds={expandedIds}
+                    busyKey={busyKey}
+                    onToggle={handleToggle}
+                    onOpen={(filePath) => void openTask(filePath)}
+                    onCopy={(task) => void handleCopy(task)}
+                    onMove={setMoveTask}
+                    onRemove={(filePath, name) => void handleRemoveRecent(filePath, name)}
+                  />
+                ) : null}
               </AnimatePresence>
             )}
           </Stack>
@@ -297,6 +391,15 @@ export function TasksListPage() {
         opened={createOpened}
         onClose={() => setCreateOpened(false)}
         onCreated={() => void navigate(AppRoutes.taskCurrent)}
+      />
+
+      <MoveTaskModal
+        opened={Boolean(moveTask)}
+        task={moveTask}
+        tasks={tasksForTree}
+        confirming={Boolean(busyKey && moveTask && (busyKey === moveTask.filePath || busyKey === moveTask.id))}
+        onClose={() => setMoveTask(null)}
+        onConfirm={(parentTaskId) => void handleMoveConfirm(parentTaskId)}
       />
     </Stack>
   );

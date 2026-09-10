@@ -14,6 +14,8 @@ export type RecentTask = {
   shortName?: string;
   filePath: string;
   openedAt: string;
+  /** Parent task id when this task is nested under another */
+  parentTaskId?: string | null;
 };
 
 /** Named external link for «Объект испытаний». */
@@ -46,11 +48,13 @@ export type TaskMeta = {
   functionalRequirements: RichTextContent;
   createdAt: string;
   updatedAt: string;
+  /** Parent task id when this task is nested under another */
+  parentTaskId?: string | null;
 };
 
 /**
- * A Task owns its test cases.
- * Hierarchy: Task → TestCase[]
+ * A Task owns its test cases and may nest under another task.
+ * Hierarchy: Task → Task[] (subtasks) → TestCase[]
  */
 export type TaskDocument = {
   formatVersion: typeof TC_TASK_FORMAT_VERSION;

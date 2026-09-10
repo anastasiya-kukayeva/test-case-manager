@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Group, Stack, Text, Title } from '@mantine/core';
+import { Alert, Button, Card, Group, Stack, Text, Title, Tooltip, UnstyledButton } from '@mantine/core';
 import { IconInfoCircle, IconPlus } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -93,7 +93,16 @@ export function TestCasesPage() {
   return (
     <Stack gap="lg">
       <Group justify="space-between" align="flex-start">
-        <Title order={2}>{getTaskShortLabel(current.document.meta)}</Title>
+        <Tooltip label="Открыть карточку задачи" position="top-start">
+          <UnstyledButton
+            className="tcm-task-name-link"
+            aria-label="Открыть карточку задачи"
+            onClick={() => void navigate(AppRoutes.taskCurrent)}
+            style={{ borderRadius: 'var(--mantine-radius-md)' }}
+          >
+            <Title order={2}>{getTaskShortLabel(current.document.meta)}</Title>
+          </UnstyledButton>
+        </Tooltip>
         <Group gap="sm">
           <ImportWordTestCasesButton />
           <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>

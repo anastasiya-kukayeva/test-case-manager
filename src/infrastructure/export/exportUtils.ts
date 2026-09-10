@@ -410,16 +410,27 @@ export async function decodeDataUrlImage(dataUrl: string): Promise<DecodedImage 
   };
 }
 
-export function fitImageSize(
+/**
+ * Stretch the image to `targetWidth` (may upscale), keeping aspect ratio.
+ * If `maxHeight` is set and the result would be taller, scale down uniformly
+ * so the image still fits on the page.
+ */
+export function scaleImageToWidth(
   width: number,
   height: number,
-  maxWidth = 520,
-  maxHeight = 360,
+  targetWidth: number,
+  maxHeight?: number,
 ): { width: number; height: number } {
-  const ratio = Math.min(maxWidth / Math.max(width, 1), maxHeight / Math.max(height, 1), 1);
+  const safeWidth = Math.max(width, 1);
+  const safeHeight = Math.max(height, 1);
+  const pageWidth = Math.max(targetWidth, 1);
+  let ratio = pageWidth / safeWidth;
+  if (maxHeight !== undefined && maxHeight > 0) {
+    ratio = Math.min(ratio, maxHeight / safeHeight);
+  }
   return {
-    width: Math.max(1, Math.round(width * ratio)),
-    height: Math.max(1, Math.round(height * ratio)),
+    width: Math.max(1, Math.round(safeWidth * ratio)),
+    height: Math.max(1, Math.round(safeHeight * ratio)),
   };
 }
 

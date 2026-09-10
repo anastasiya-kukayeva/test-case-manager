@@ -31,9 +31,29 @@ body {
   );
 }
 
+.tcm-task-list-subtasks {
+  margin-left: 1.15rem;
+  padding-left: 0.65rem;
+  border-left: 1px solid var(--mantine-color-default-border);
+}
+
 .tcm-app-task-row:hover {
   background: light-dark(
     var(--mantine-color-blue-0),
     var(--mantine-color-dark-5)
   );
+}
+
+.tcm-task-name-link {
+  cursor: pointer;
+}
+
+.tcm-task-name-link:hover,
+.tcm-task-name-link:hover h2 {
+  color: var(--mantine-color-blue-6);
+}
+
+.tcm-task-name-link:focus-visible {
+  outline: 2px solid var(--mantine-color-blue-filled);
+  outline-offset: 2px;
 }

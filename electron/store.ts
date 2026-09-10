@@ -5,8 +5,10 @@ export type ElectronStoreSchema = {
   recentProjects: Array<{
     id: string;
     name: string;
+    shortName?: string;
     filePath: string;
     openedAt: string;
+    parentTaskId?: string | null;
   }>;
   lastOpenedProjectPath: string | null;
   windowBounds: {

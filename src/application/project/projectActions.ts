@@ -34,6 +34,7 @@ function toRecent(document: ProjectDocument, filePath: string): RecentProject {
     shortName: document.meta.shortName?.trim() || undefined,
     filePath,
     openedAt: new Date().toISOString(),
+    parentTaskId: document.meta.parentTaskId || null,
   };
 }
 

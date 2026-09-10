@@ -23,10 +23,10 @@ import type { ExportSettings, NamedLink, RichTextContent, TaskDocument, TestCase
 import { isImageAttachment } from '@/domain/types/attachment';
 import {
   decodeDataUrlImage,
-  fitImageSize,
   htmlToExportBlocks,
   htmlToPlainParagraphs,
   listDepthFromExportLine,
+  scaleImageToWidth,
 } from '@/infrastructure/export/exportUtils';
 import { inlineVerificationAttachments } from '@/application/testCases/testCaseFormMapper';
 
@@ -36,6 +36,28 @@ export type PmiDocxExportContext = {
 };
 
 const FONT = 'Times New Roman';
+
+/** A4 in twips (DXA), matching OOXML / Word defaults. */
+const PAGE_WIDTH_TWIPS = 11906;
+const PAGE_HEIGHT_TWIPS = 16838;
+const PAGE_MARGIN = {
+  top: 850,
+  bottom: 1134,
+  left: 1134,
+  right: 850,
+} as const;
+
+/** ImageRun transformation uses CSS pixels at 96 DPI (1 px = 15 twips). */
+const TWIPS_PER_PIXEL = 15;
+const PAGE_CONTENT_WIDTH_PX = Math.max(
+  1,
+  Math.round((PAGE_WIDTH_TWIPS - PAGE_MARGIN.left - PAGE_MARGIN.right) / TWIPS_PER_PIXEL),
+);
+const PAGE_CONTENT_HEIGHT_PX = Math.max(
+  1,
+  Math.round((PAGE_HEIGHT_TWIPS - PAGE_MARGIN.top - PAGE_MARGIN.bottom) / TWIPS_PER_PIXEL),
+);
+
 /** docx sizes are in half-points: 24 = 12 pt */
 const SIZE_TITLE = 36; // 18 pt
 const SIZE_TOC_TITLE = 32; // 16 pt
@@ -380,7 +402,12 @@ async function imageParagraphs(dataUrl: string): Promise<Paragraph[]> {
     ];
   }
 
-  const size = fitImageSize(decoded.width, decoded.height, 480, 320);
+  const size = scaleImageToWidth(
+    decoded.width,
+    decoded.height,
+    PAGE_CONTENT_WIDTH_PX,
+    PAGE_CONTENT_HEIGHT_PX,
+  );
   return [
     new Paragraph({
       spacing: { before: 100, after: 120 },
@@ -552,12 +579,11 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
       {
         properties: {
           page: {
-            margin: {
-              top: 850,
-              bottom: 1134,
-              left: 1134,
-              right: 850,
+            size: {
+              width: PAGE_WIDTH_TWIPS,
+              height: PAGE_HEIGHT_TWIPS,
             },
+            margin: { ...PAGE_MARGIN },
           },
         },
         footers: {

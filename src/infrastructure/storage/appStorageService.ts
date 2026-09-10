@@ -102,8 +102,9 @@ export const appStorageService = {
     if (existingIndex >= 0 && !bumpToFront) {
       next = current.map((item, index) => (index === existingIndex ? { ...item, ...project } : item));
     } else {
+      const existing = existingIndex >= 0 ? current[existingIndex] : null;
       const filtered = current.filter((item) => item.filePath !== project.filePath);
-      next = [project, ...filtered].slice(0, limit);
+      next = [{ ...(existing ?? {}), ...project }, ...filtered].slice(0, limit);
     }
 
     await this.saveRecentProjects(next);

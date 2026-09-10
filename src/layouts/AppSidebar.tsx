@@ -7,11 +7,12 @@ import {
   IconListDetails,
   IconSettings,
 } from '@tabler/icons-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { projectActions } from '@/application/project/projectActions';
 import { getTaskShortLabel } from '@/domain/utils/taskDisplay';
-import type { RecentTask } from '@/domain/types';
+import { buildTaskTree, collectAncestorIds, type TaskTreeNode } from '@/domain/utils/taskTree';
+import type { OpenTaskState, RecentTask } from '@/domain/types';
 import { AppRoutes } from '@/routes/paths';
 import { useAppStore } from '@/stores/useAppStore';
 import { useProjectStore } from '@/stores/useProjectStore';
@@ -29,12 +30,86 @@ function isSameTask(
   return recent.id === current.id;
 }
 
+type SidebarTaskNodeProps = {
+  node: TaskTreeNode;
+  currentRef: { filePath: string | null; id: string } | null;
+  currentTask: OpenTaskState | null;
+  isOnTaskCurrent: boolean;
+  isOnTestCases: boolean;
+  expandedIds: string[];
+  onToggle: (taskId: string, opened: boolean) => void;
+  onOpen: (recent: RecentTask, isCurrent: boolean) => void;
+};
+
+function SidebarTaskNode({
+  node,
+  currentRef,
+  currentTask,
+  isOnTaskCurrent,
+  isOnTestCases,
+  expandedIds,
+  onToggle,
+  onOpen,
+}: SidebarTaskNodeProps) {
+  const { task, children } = node;
+  const isCurrent = isSameTask(task, currentRef);
+  const shortLabel =
+    isCurrent && currentTask
+      ? getTaskShortLabel(currentTask.document.meta)
+      : getTaskShortLabel(task);
+  const hasChildren = children.length > 0;
+  const opened = hasChildren && expandedIds.includes(task.id);
+
+  return (
+    <MantineNavLink
+      label={shortLabel}
+      active={isCurrent && (isOnTaskCurrent || isOnTestCases)}
+      leftSection={<IconChecklist size={16} stroke={1.5} />}
+      variant="filled"
+      opened={hasChildren ? opened : undefined}
+      onChange={
+        hasChildren
+          ? (nextOpened) => {
+              onToggle(task.id, nextOpened);
+            }
+          : undefined
+      }
+      childrenOffset={18}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (hasChildren && !opened) {
+          onToggle(task.id, true);
+        }
+        onOpen(task, isCurrent);
+      }}
+    >
+      {hasChildren
+        ? children.map((child) => (
+            <SidebarTaskNode
+              key={`${child.task.id}-${child.task.filePath}`}
+              node={child}
+              currentRef={currentRef}
+              currentTask={currentTask}
+              isOnTaskCurrent={isOnTaskCurrent}
+              isOnTestCases={isOnTestCases}
+              expandedIds={expandedIds}
+              onToggle={onToggle}
+              onOpen={onOpen}
+            />
+          ))
+        : null}
+    </MantineNavLink>
+  );
+}
+
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentTask = useProjectStore((state) => state.current);
   const recentProjects = useAppStore((state) => state.recentProjects);
   const [tasksOpened, setTasksOpened] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
   const isOnTasksList = location.pathname === AppRoutes.tasks;
   const isOnTaskCurrent = location.pathname === AppRoutes.taskCurrent;
@@ -45,32 +120,90 @@ export function AppSidebar() {
   const currentFilePath = currentTask?.filePath ?? null;
   const currentId = currentTask?.document.meta.id ?? null;
 
-  /** Keep list order stable — never pull the open task to the top. */
+  /** Same source as the Задачи page: recents, with the open task’s latest parent/name. */
   const sidebarTasks = useMemo(() => {
-    const list = [...recentProjects];
-    if (!currentTask || !currentId) {
-      return list.slice(0, 10);
+    let list = [...recentProjects];
+
+    if (currentTask && currentId) {
+      list = list.map((item) => {
+        const sameFile = Boolean(currentFilePath) && item.filePath === currentFilePath;
+        const sameId = item.id === currentId;
+        if (!sameFile && !sameId) {
+          return item;
+        }
+        return {
+          ...item,
+          name: currentTask.document.meta.name,
+          shortName: currentTask.document.meta.shortName || item.shortName,
+          parentTaskId: currentTask.document.meta.parentTaskId ?? item.parentTaskId,
+        };
+      });
+
+      const alreadyListed = list.some(
+        (item) =>
+          (currentFilePath ? item.filePath === currentFilePath : false) || item.id === currentId,
+      );
+      if (!alreadyListed && currentFilePath) {
+        list.push({
+          id: currentId,
+          name: currentTask.document.meta.name,
+          shortName: currentTask.document.meta.shortName || undefined,
+          filePath: currentFilePath,
+          openedAt: new Date().toISOString(),
+          parentTaskId: currentTask.document.meta.parentTaskId ?? null,
+        });
+      }
     }
 
-    const alreadyListed = list.some(
-      (item) =>
-        (currentFilePath ? item.filePath === currentFilePath : false) || item.id === currentId,
-    );
-    if (!alreadyListed) {
-      list.push({
-        id: currentId,
-        name: currentTask.document.meta.name,
-        shortName: currentTask.document.meta.shortName || undefined,
-        filePath: currentFilePath ?? `__unsaved__${currentId}`,
-        openedAt: new Date().toISOString(),
-      });
-    }
-    return list.slice(0, 10);
+    return list;
   }, [recentProjects, currentTask, currentFilePath, currentId]);
+
+  const unsavedTask = useMemo((): RecentTask | null => {
+    if (!currentTask || currentFilePath || !currentId) {
+      return null;
+    }
+    return {
+      id: currentId,
+      name: currentTask.document.meta.name,
+      shortName: currentTask.document.meta.shortName || undefined,
+      filePath: `__unsaved__${currentId}`,
+      openedAt: new Date().toISOString(),
+      parentTaskId: currentTask.document.meta.parentTaskId ?? null,
+    };
+  }, [currentTask, currentFilePath, currentId]);
+
+  const taskTree = useMemo(() => buildTaskTree(sidebarTasks), [sidebarTasks]);
 
   const currentRef = currentTask
     ? { filePath: currentTask.filePath, id: currentTask.document.meta.id }
     : null;
+
+  useEffect(() => {
+    if (isOnTasksList || isOnTaskCurrent || isOnTestCases) {
+      setTasksOpened(true);
+    }
+  }, [isOnTasksList, isOnTaskCurrent, isOnTestCases]);
+
+  useEffect(() => {
+    if (!currentId) {
+      return;
+    }
+    const ancestors = collectAncestorIds(taskTree, currentId);
+    if (ancestors.length === 0) {
+      return;
+    }
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      let changed = false;
+      for (const id of ancestors) {
+        if (!next.has(id)) {
+          next.add(id);
+          changed = true;
+        }
+      }
+      return changed ? [...next] : current;
+    });
+  }, [currentId, taskTree]);
 
   const openTask = (recent: RecentTask, isCurrent: boolean) => {
     if (isCurrent || recent.filePath.startsWith('__unsaved__')) {
@@ -84,8 +217,20 @@ export function AppSidebar() {
     });
   };
 
+  const handleToggle = (taskId: string, opened: boolean) => {
+    setExpandedIds((current) =>
+      opened
+        ? current.includes(taskId)
+          ? current
+          : [...current, taskId]
+        : current.filter((id) => id !== taskId),
+    );
+  };
+
+  const hasAnyTasks = Boolean(unsavedTask) || taskTree.length > 0;
+
   return (
-    <Stack gap="xs" p="md">
+    <Stack gap="xs" p="md" style={{ height: '100%', overflow: 'auto' }}>
       <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
         Навигация
       </Text>
@@ -123,7 +268,7 @@ export function AppSidebar() {
           void navigate(AppRoutes.tasks);
         }}
       >
-        {sidebarTasks.length === 0 ? (
+        {!hasAnyTasks ? (
           <MantineNavLink
             label="Нет задач"
             description="Создайте или откройте задачу"
@@ -131,27 +276,35 @@ export function AppSidebar() {
             leftSection={<IconChecklist size={16} stroke={1.5} />}
           />
         ) : (
-          sidebarTasks.map((recent) => {
-            const isCurrent = isSameTask(recent, currentRef);
-            const shortLabel = isCurrent
-              ? getTaskShortLabel(currentTask!.document.meta)
-              : getTaskShortLabel(recent);
-
-            return (
+          <>
+            {unsavedTask ? (
               <MantineNavLink
-                key={recent.filePath}
-                label={shortLabel}
-                active={isCurrent && (isOnTaskCurrent || isOnTestCases)}
+                label={getTaskShortLabel(currentTask!.document.meta)}
+                description="Не сохранена"
+                active={isOnTaskCurrent || isOnTestCases}
                 leftSection={<IconChecklist size={16} stroke={1.5} />}
                 variant="filled"
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
-                  openTask(recent, isCurrent);
+                  openTask(unsavedTask, true);
                 }}
               />
-            );
-          })
+            ) : null}
+            {taskTree.map((node) => (
+              <SidebarTaskNode
+                key={`${node.task.id}-${node.task.filePath}`}
+                node={node}
+                currentRef={currentRef}
+                currentTask={currentTask}
+                isOnTaskCurrent={isOnTaskCurrent}
+                isOnTestCases={isOnTestCases}
+                expandedIds={expandedIds}
+                onToggle={handleToggle}
+                onOpen={openTask}
+              />
+            ))}
+          </>
         )}
       </MantineNavLink>
 

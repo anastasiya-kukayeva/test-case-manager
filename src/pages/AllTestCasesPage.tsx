@@ -9,6 +9,7 @@ import {
   Text,
   Title,
   Tooltip,
+  UnstyledButton,
 } from '@mantine/core';
 import { IconAlertCircle, IconRefresh } from '@tabler/icons-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -26,7 +27,7 @@ import { ImportWordTestCasesButton } from '@/components/testCases/ImportWordTest
 import { TestCasesListTable } from '@/components/testCases/TestCasesListTable';
 import { FadeIn } from '@/components/ui/FadeIn';
 import type { TestResultOutcome } from '@/domain/types';
-import { testCaseEditorPath } from '@/routes/paths';
+import { AppRoutes, testCaseEditorPath } from '@/routes/paths';
 import { useAppStore } from '@/stores/useAppStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 
@@ -61,25 +62,41 @@ export function AllTestCasesPage() {
     void reload();
   }, [reload, recentProjects, current?.document.meta.id, current?.document.testCases.length]);
 
-  const ensureTaskOpen = async (row: CatalogTestCaseRow): Promise<boolean> => {
+  const ensureTaskOpen = async (task: {
+    taskId: string;
+    taskFilePath: string | null;
+  }): Promise<boolean> => {
     const open = useProjectStore.getState().current;
     const sameTask =
       Boolean(open) &&
-      ((row.taskFilePath && open?.filePath === row.taskFilePath) ||
-        open?.document.meta.id === row.taskId);
+      ((task.taskFilePath && open?.filePath === task.taskFilePath) ||
+        open?.document.meta.id === task.taskId);
 
     if (sameTask) {
       return true;
     }
 
-    if (!row.taskFilePath) {
+    if (!task.taskFilePath) {
       setError('Файл задачи не сохранён — откройте задачу вручную.');
       return false;
     }
 
-    return projectActions.openRecent(row.taskFilePath, {
+    return projectActions.openRecent(task.taskFilePath, {
       preserveRecentOrder: true,
     });
+  };
+
+  const openTaskCard = async (task: { taskId: string; taskFilePath: string | null }) => {
+    setOpeningId(task.taskId);
+    try {
+      const ok = await ensureTaskOpen(task);
+      if (!ok) {
+        return;
+      }
+      void navigate(AppRoutes.taskCurrent);
+    } finally {
+      setOpeningId(null);
+    }
   };
 
   const openRow = async (row: CatalogTestCaseRow) => {
@@ -204,9 +221,21 @@ export function AllTestCasesPage() {
           <Accordion multiple variant="separated" radius="lg" defaultValue={[]}>
             {groups.map((group) => (
               <Accordion.Item key={group.taskId} value={group.taskId}>
-                <Accordion.Control>
-                  <Group justify="space-between" pr="md" wrap="nowrap">
-                    <div style={{ minWidth: 0 }}>
+                <Group wrap="nowrap" gap={4} align="stretch">
+                  <Tooltip label="Открыть карточку задачи" position="top-start">
+                    <UnstyledButton
+                      className="tcm-task-name-link"
+                      disabled={openingId === group.taskId}
+                      aria-label={`Открыть задачу ${group.taskShortLabel}`}
+                      onClick={() => void openTaskCard(group)}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        padding: '12px 16px',
+                        borderRadius: 'var(--mantine-radius-md)',
+                        textAlign: 'left',
+                      }}
+                    >
                       <Text fw={700} lineClamp={1}>
                         {group.taskShortLabel}
                       </Text>
@@ -215,10 +244,15 @@ export function AllTestCasesPage() {
                           {group.taskName}
                         </Text>
                       ) : null}
-                    </div>
+                    </UnstyledButton>
+                  </Tooltip>
+                  <Accordion.Control
+                    style={{ flex: '0 0 auto' }}
+                    aria-label={`Показать тест-кейсы задачи ${group.taskShortLabel}`}
+                  >
                     <Badge variant="light">{group.testCases.length}</Badge>
-                  </Group>
-                </Accordion.Control>
+                  </Accordion.Control>
+                </Group>
                 <Accordion.Panel>
                   <TestCasesListTable
                     rows={group.testCases}

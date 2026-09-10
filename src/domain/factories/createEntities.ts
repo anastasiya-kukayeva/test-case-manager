@@ -122,6 +122,7 @@ export function createTaskMeta(partial?: Partial<ProjectMeta>): ProjectMeta {
     functionalRequirements: partial?.functionalRequirements ?? createEmptyRichText(),
     createdAt: partial?.createdAt ?? now,
     updatedAt: partial?.updatedAt ?? now,
+    parentTaskId: partial?.parentTaskId ?? null,
   };
 }
 

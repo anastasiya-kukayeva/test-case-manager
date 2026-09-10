@@ -178,6 +178,10 @@ export function validateTaskDocument(value: unknown): TaskDocument {
       functionalRequirements: parseRichText(meta.functionalRequirements),
       createdAt: String(meta.createdAt),
       updatedAt: String(meta.updatedAt),
+      parentTaskId:
+        typeof meta.parentTaskId === 'string' && meta.parentTaskId.trim()
+          ? meta.parentTaskId.trim()
+          : null,
     },
     testCases: (value.testCases as TaskDocument['testCases']).map((testCase) => ({
       ...testCase,

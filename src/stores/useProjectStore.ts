@@ -243,8 +243,9 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
             index === existingIndex ? { ...item, ...project } : item,
           );
         } else {
+          const existing = existingIndex >= 0 ? current[existingIndex] : null;
           next = [
-            project,
+            { ...(existing ?? {}), ...project },
             ...current.filter((item) => item.filePath !== project.filePath),
           ].slice(0, 10);
         }
