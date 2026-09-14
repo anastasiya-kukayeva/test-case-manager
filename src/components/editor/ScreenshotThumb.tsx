@@ -13,6 +13,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { IconArrowsDiagonal2, IconGripVertical, IconTrash, IconZoomIn } from '@tabler/icons-react';
 import { PhotoView } from 'react-photo-view';
+import { CopyScreenshotButton } from '@/components/editor/CopyScreenshotButton';
 import type { ImageAttachment } from '@/domain/types';
 import {
   IMAGE_DISPLAY_WIDTH_DEFAULT,
@@ -79,11 +80,14 @@ export function ScreenshotThumb({
               #{index + 1}
             </Badge>
           </Group>
-          <Tooltip label="Удалить">
-            <ActionIcon size="sm" color="red" variant="subtle" onClick={onRemove}>
-              <IconTrash size={14} />
-            </ActionIcon>
-          </Tooltip>
+          <Group gap={4} wrap="nowrap">
+            <CopyScreenshotButton src={image.dataUrl} />
+            <Tooltip label="Удалить">
+              <ActionIcon size="sm" color="red" variant="subtle" onClick={onRemove}>
+                <IconTrash size={14} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
         </Group>
 
         <PhotoView src={image.dataUrl}>
@@ -98,27 +102,39 @@ export function ScreenshotThumb({
             <div className="tcm-screenshot-zoom">
               <IconZoomIn size={18} />
             </div>
-            <Tooltip label="Удалить">
-              <ActionIcon
-                className="tcm-screenshot-delete"
-                size="sm"
-                color="red"
-                variant="filled"
-                radius="xl"
-                aria-label="Удалить скриншот"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onRemove();
-                }}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                }}
-              >
-                <IconTrash size={14} />
-              </ActionIcon>
-            </Tooltip>
+            <div
+              className="tcm-screenshot-actions"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+            >
+              <CopyScreenshotButton src={image.dataUrl} variant="filled" color="dark" radius="xl" />
+              <Tooltip label="Удалить">
+                <ActionIcon
+                  size="sm"
+                  color="red"
+                  variant="filled"
+                  radius="xl"
+                  aria-label="Удалить скриншот"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onRemove();
+                  }}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }}
+                >
+                  <IconTrash size={14} />
+                </ActionIcon>
+              </Tooltip>
+            </div>
             <Tooltip label="Изменить размер">
               <button
                 type="button"

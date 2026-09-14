@@ -29,6 +29,8 @@ export type TestCase = {
   verificationResult: RichTextContent;
   verificationAttachments: TestAttachment[];
   testOutcome: TestResultOutcome;
+  /** Marker for a future regression suite. Not used in export yet. */
+  includeInRegression: boolean;
   createdAt: string;
   updatedAt: string;
 };

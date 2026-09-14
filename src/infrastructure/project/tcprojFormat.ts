@@ -190,6 +190,7 @@ export function validateTaskDocument(value: unknown): TaskDocument {
       businessAnalyst:
         typeof testCase.businessAnalyst === 'string' ? testCase.businessAnalyst : '',
       steps: normalizeStepsContent((testCase as { steps?: unknown }).steps),
+      includeInRegression: testCase.includeInRegression === true,
     })),
   };
 }

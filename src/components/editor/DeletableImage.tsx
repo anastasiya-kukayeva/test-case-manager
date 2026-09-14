@@ -1,5 +1,6 @@
 import { ActionIcon, Tooltip } from '@mantine/core';
 import { IconArrowsDiagonal2, IconTrash } from '@tabler/icons-react';
+import { CopyScreenshotButton } from '@/components/editor/CopyScreenshotButton';
 import Image from '@tiptap/extension-image';
 import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from '@tiptap/react';
@@ -111,27 +112,40 @@ function EditableImageView({
               height: 'auto',
             }}
           />
-          <Tooltip label="Удалить скриншот">
-            <ActionIcon
-              className="tcm-rte-image-delete"
-              color="red"
-              variant="filled"
-              size="sm"
-              radius="xl"
-              aria-label="Удалить скриншот"
-              onMouseDown={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-              }}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                deleteNode();
-              }}
-            >
-              <IconTrash size={14} />
-            </ActionIcon>
-          </Tooltip>
+          <div
+            className="tcm-rte-image-actions"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+          >
+            <CopyScreenshotButton src={src} variant="filled" color="dark" radius="xl" />
+            <Tooltip label="Удалить скриншот">
+              <ActionIcon
+                className="tcm-rte-image-delete"
+                color="red"
+                variant="filled"
+                size="sm"
+                radius="xl"
+                aria-label="Удалить скриншот"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  deleteNode();
+                }}
+              >
+                <IconTrash size={14} />
+              </ActionIcon>
+            </Tooltip>
+          </div>
           <Tooltip label="Изменить размер">
             <button
               type="button"

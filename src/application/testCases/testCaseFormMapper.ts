@@ -118,6 +118,7 @@ export function testCaseToFormValues(testCase: TestCase): TestCaseEditorFormValu
     ),
     verificationAttachments: [],
     testOutcome: testCase.testOutcome,
+    includeInRegression: Boolean(testCase.includeInRegression),
   };
 }
 
@@ -142,6 +143,7 @@ export function formValuesToTestCasePatch(
     // Screenshots, code and logs live in verificationResult HTML.
     verificationAttachments: [],
     testOutcome: values.testOutcome,
+    includeInRegression: values.includeInRegression,
     updatedAt: new Date().toISOString(),
   };
 }

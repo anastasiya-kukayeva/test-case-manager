@@ -37,7 +37,7 @@ const LABEL_REPLACERS: Array<{ key: FieldKey; pattern: RegExp }> = [
   },
   {
     key: 'outcome',
-    pattern: /<strong>\s*Результат\s+теста\s*:?\s*<\/strong>/gi,
+    pattern: /<strong>\s*Результат\s+тест(?:а|ирования)\s*:?\s*<\/strong>/gi,
   },
 ];
 
@@ -255,6 +255,7 @@ export function parsedPmiToTestCase(parsed: ParsedPmiTestCase, number: string): 
     verificationResult: parsed.verificationResult,
     verificationAttachments: [],
     testOutcome: parsed.testOutcome,
+    includeInRegression: false,
     createdAt: now,
     updatedAt: now,
   };

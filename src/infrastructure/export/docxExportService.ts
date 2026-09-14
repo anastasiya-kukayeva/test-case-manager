@@ -500,7 +500,10 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
         children.push(
           new Paragraph({
             spacing: { before: 240, after: 100 },
-            children: [run(`Тест №${numberLabel}`, { bold: true, size: SIZE_H2 })],
+            children: [
+              run('Тест №', { bold: true, size: SIZE_H2, underline: {} }),
+              run(numberLabel, { bold: true, size: SIZE_H2 }),
+            ],
           }),
         );
 
@@ -552,8 +555,16 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
         if (testCase.testOutcome) {
           children.push(
             new Paragraph({
-              spacing: { before: 100, after: 160 },
-              children: [run(`Результат теста: ${outcomeLabel(testCase)}.`, { bold: true })],
+              spacing: { before: 80, after: 0 },
+              children: [run('')],
+            }),
+          );
+          children.push(
+            new Paragraph({
+              spacing: { before: 0, after: 160 },
+              children: [
+                run(`Результат тестирования: ${outcomeLabel(testCase)}.`, { bold: true }),
+              ],
             }),
           );
         }

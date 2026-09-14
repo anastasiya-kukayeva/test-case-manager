@@ -1,4 +1,5 @@
 import { nanoid } from 'nanoid';
+import { AppError } from '@/application/errors/AppError';
 import type { ImageAttachment, TestAttachment } from '@/domain/types';
 import { isImageAttachment } from '@/domain/types/attachment';
 
@@ -93,4 +94,72 @@ export function reorderImages(
   const [item] = next.splice(fromIndex, 1);
   next.splice(toIndex, 0, item);
   return next;
+}
+
+function dataUrlToBlob(dataUrl: string): Blob {
+  const match = /^data:([^;,]+)?(?:;charset=[^;,]+)?;base64,(.+)$/i.exec(dataUrl.trim());
+  if (!match) {
+    throw new AppError('VALIDATION', 'Некорректные данные изображения');
+  }
+
+  const mimeType = match[1] || 'image/png';
+  const binary = atob(match[2]);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mimeType });
+}
+
+async function toPngBlob(blob: Blob): Promise<Blob> {
+  if (blob.type === 'image/png') {
+    return blob;
+  }
+
+  const bitmap = await createImageBitmap(blob);
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new AppError('UNKNOWN', 'Не удалось подготовить изображение для копирования');
+    }
+    ctx.drawImage(bitmap, 0, 0);
+    const png = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, 'image/png');
+    });
+    if (!png) {
+      throw new AppError('UNKNOWN', 'Не удалось подготовить изображение для копирования');
+    }
+    return png;
+  } finally {
+    bitmap.close();
+  }
+}
+
+/** Copy a screenshot (data URL or regular image URL) to the system clipboard as PNG. */
+export async function copyImageDataUrlToClipboard(src: string): Promise<void> {
+  const trimmed = src.trim();
+  if (!trimmed) {
+    throw new AppError('VALIDATION', 'Нет изображения для копирования');
+  }
+
+  let blob: Blob;
+  if (trimmed.startsWith('data:')) {
+    blob = dataUrlToBlob(trimmed);
+  } else {
+    const response = await fetch(trimmed);
+    if (!response.ok) {
+      throw new AppError('UNKNOWN', 'Не удалось прочитать изображение');
+    }
+    blob = await response.blob();
+  }
+  const pngBlob = await toPngBlob(blob);
+
+  if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) {
+    throw new AppError('IPC_UNAVAILABLE', 'Копирование в буфер обмена недоступно');
+  }
+
+  await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
 }

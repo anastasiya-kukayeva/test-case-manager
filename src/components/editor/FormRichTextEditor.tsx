@@ -12,7 +12,10 @@ import {
   IconUnderline,
 } from '@tabler/icons-react';
 import CodeBlock from '@tiptap/extension-code-block';
+import Color from '@tiptap/extension-color';
+import Highlight from '@tiptap/extension-highlight';
 import Placeholder from '@tiptap/extension-placeholder';
+import { TextStyle } from '@tiptap/extension-text-style';
 import Underline from '@tiptap/extension-underline';
 import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -24,6 +27,7 @@ import {
   canSinkListItem,
   NestedListItem,
 } from '@/components/editor/nestedListItem';
+import { RichTextColorControls } from '@/components/editor/RichTextColorControls';
 import { toggleFenceBlock } from '@/components/editor/toggleFenceBlock';
 import type { RichTextContent } from '@/domain/types';
 import 'react-photo-view/dist/react-photo-view.css';
@@ -106,6 +110,14 @@ function createExtensions(placeholder: string) {
     }),
     NestedListItem,
     Underline,
+    TextStyle,
+    Color,
+    Highlight.configure({
+      multicolor: true,
+      HTMLAttributes: {
+        class: 'tcm-rte-highlight',
+      },
+    }),
     CodeBlock.configure({
       HTMLAttributes: {
         class: 'tcm-code-block',
@@ -177,7 +189,11 @@ export function FormRichTextEditor({
           if (!(target instanceof Element) || !target.closest('img.tcm-rte-image')) {
             return false;
           }
-          if (target.closest('.tcm-rte-image-gutter, .tcm-image-resize-handle, .tcm-rte-image-delete')) {
+          if (
+            target.closest(
+              '.tcm-rte-image-gutter, .tcm-image-resize-handle, .tcm-rte-image-actions, .tcm-rte-image-delete',
+            )
+          ) {
             return false;
           }
           const src = typeof node.attrs.src === 'string' ? node.attrs.src : '';
@@ -245,8 +261,12 @@ export function FormRichTextEditor({
           canLift: false,
           code: false,
           log: false,
+          color: null as string | null,
+          highlight: null as string | null,
         };
       }
+      const textColor = current.getAttributes('textStyle').color;
+      const highlightColor = current.getAttributes('highlight').color;
       return {
         bold: current.isActive('bold'),
         italic: current.isActive('italic'),
@@ -257,6 +277,13 @@ export function FormRichTextEditor({
         canLift: current.can().liftListItem('listItem'),
         code: current.isActive('codeBlock') && !current.isActive('codeBlock', { language: 'log' }),
         log: current.isActive('codeBlock', { language: 'log' }),
+        color: typeof textColor === 'string' && textColor ? textColor : null,
+        highlight:
+          typeof highlightColor === 'string' && highlightColor
+            ? highlightColor
+            : current.isActive('highlight')
+              ? 'default'
+              : null,
       };
     },
   });
@@ -298,6 +325,11 @@ export function FormRichTextEditor({
               <IconUnderline size={16} />
             </ActionIcon>
           </Tooltip>
+          <RichTextColorControls
+            editor={editor}
+            color={toolbarState?.color ?? null}
+            highlight={toolbarState?.highlight ?? null}
+          />
           <Tooltip label="Маркированный список">
             <ActionIcon
               variant={toolbarState?.bulletList ? 'filled' : 'default'}

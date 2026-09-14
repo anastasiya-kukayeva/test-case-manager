@@ -1,6 +1,7 @@
 import {
   Accordion,
   Button,
+  Checkbox,
   Group,
   Stack,
   Text,
@@ -135,7 +136,18 @@ export function TestCaseEditorForm({
             </Group>
           </Group>
 
-          <Accordion multiple defaultValue={['header', 'goal', 'preconditions', 'steps', 'verification', 'outcome']}>
+          <Accordion
+            multiple
+            defaultValue={[
+              'header',
+              'goal',
+              'preconditions',
+              'steps',
+              'verification',
+              'outcome',
+              'regression',
+            ]}
+          >
             <EditorSection value="header" title="1. Заголовок теста" description="Номер теста">
               <Controller
                 name="number"
@@ -251,6 +263,26 @@ export function TestCaseEditorForm({
                 control={control}
                 render={({ field }) => (
                   <TestOutcomeSelector value={field.value} onChange={field.onChange} />
+                )}
+              />
+            </EditorSection>
+
+            <EditorSection
+              value="regression"
+              title="7. Регресс"
+              description="Отметка для будущей выгрузки. Сейчас ни на что не влияет"
+            >
+              <Controller
+                name="includeInRegression"
+                control={control}
+                render={({ field }) => (
+                  <Checkbox
+                    label="Добавить в регресс?"
+                    checked={field.value}
+                    onChange={(event) => {
+                      field.onChange(event.currentTarget.checked);
+                    }}
+                  />
                 )}
               />
             </EditorSection>

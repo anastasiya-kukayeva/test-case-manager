@@ -1,17 +1,24 @@
 import {
-  Accordion,
   ActionIcon,
   Alert,
   Badge,
+  Box,
+  Card,
+  Collapse,
   Group,
   Loader,
   Stack,
   Text,
   Title,
   Tooltip,
-  UnstyledButton,
 } from '@mantine/core';
-import { IconAlertCircle, IconRefresh } from '@tabler/icons-react';
+import {
+  IconAlertCircle,
+  IconChevronDown,
+  IconChevronRight,
+  IconClipboardList,
+  IconRefresh,
+} from '@tabler/icons-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -31,6 +38,10 @@ import { AppRoutes, testCaseEditorPath } from '@/routes/paths';
 import { useAppStore } from '@/stores/useAppStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 
+function findCase(group: CatalogTaskGroup, id: string): CatalogTestCaseRow | undefined {
+  return group.testCases.find((item) => item.id === id);
+}
+
 export function AllTestCasesPage() {
   const navigate = useNavigate();
   const recentProjects = useAppStore((state) => state.recentProjects);
@@ -38,6 +49,7 @@ export function AllTestCasesPage() {
   const [groups, setGroups] = useState<CatalogTaskGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
@@ -50,6 +62,10 @@ export function AllTestCasesPage() {
     try {
       const next = await loadCatalogTestCaseGroups();
       setGroups(next);
+      setExpandedIds((currentIds) => {
+        const valid = new Set(next.map((group) => group.taskId));
+        return currentIds.filter((id) => valid.has(id));
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось загрузить тест-кейсы');
       setGroups([]);
@@ -61,6 +77,14 @@ export function AllTestCasesPage() {
   useEffect(() => {
     void reload();
   }, [reload, recentProjects, current?.document.meta.id, current?.document.testCases.length]);
+
+  const toggleGroup = (taskId: string) => {
+    setExpandedIds((currentIds) =>
+      currentIds.includes(taskId)
+        ? currentIds.filter((id) => id !== taskId)
+        : [...currentIds, taskId],
+    );
+  };
 
   const ensureTaskOpen = async (task: {
     taskId: string;
@@ -175,7 +199,7 @@ export function AllTestCasesPage() {
           <div>
             <Title order={2}>Тест-кейсы</Title>
             <Text c="dimmed" mt="xs">
-              Все тест-кейсы из недавних задач, сгруппированные по задаче
+              Все тест-кейсы из недавних задач. Нажмите на строку, чтобы открыть список кейсов
               {totalCount > 0 ? ` · ${totalCount}` : ''}
             </Text>
           </div>
@@ -218,84 +242,111 @@ export function AllTestCasesPage() {
 
       {!loading && groups.length > 0 ? (
         <FadeIn>
-          <Accordion multiple variant="separated" radius="lg" defaultValue={[]}>
-            {groups.map((group) => (
-              <Accordion.Item key={group.taskId} value={group.taskId}>
-                <Group wrap="nowrap" gap={4} align="stretch">
-                  <Tooltip label="Открыть карточку задачи" position="top-start">
-                    <UnstyledButton
-                      className="tcm-task-name-link"
-                      disabled={openingId === group.taskId}
-                      aria-label={`Открыть задачу ${group.taskShortLabel}`}
-                      onClick={() => void openTaskCard(group)}
+          <Card withBorder padding="lg" radius="lg">
+            <Stack gap={4}>
+              {groups.map((group) => {
+                const expanded = expandedIds.includes(group.taskId);
+                return (
+                  <div key={group.taskId}>
+                    <Group
+                      justify="space-between"
+                      wrap="nowrap"
+                      py="sm"
+                      px="xs"
+                      className="tcm-task-list-row"
                       style={{
-                        flex: 1,
-                        minWidth: 0,
-                        padding: '12px 16px',
+                        cursor: 'pointer',
                         borderRadius: 'var(--mantine-radius-md)',
-                        textAlign: 'left',
                       }}
+                      onClick={() => toggleGroup(group.taskId)}
                     >
-                      <Text fw={700} lineClamp={1}>
-                        {group.taskShortLabel}
-                      </Text>
-                      {group.taskShortLabel !== group.taskName ? (
-                        <Text size="sm" c="dimmed" lineClamp={1} title={group.taskName}>
-                          {group.taskName}
-                        </Text>
-                      ) : null}
-                    </UnstyledButton>
-                  </Tooltip>
-                  <Accordion.Control
-                    style={{ flex: '0 0 auto' }}
-                    aria-label={`Показать тест-кейсы задачи ${group.taskShortLabel}`}
-                  >
-                    <Badge variant="light">{group.testCases.length}</Badge>
-                  </Accordion.Control>
-                </Group>
-                <Accordion.Panel>
-                  <TestCasesListTable
-                    rows={group.testCases}
-                    onOpen={(row) => {
-                      const full = group.testCases.find((item) => item.id === row.id);
-                      if (full) {
-                        void openRow(full);
-                      }
-                    }}
-                    onDuplicate={(row) => {
-                      const full = group.testCases.find((item) => item.id === row.id);
-                      if (full) {
-                        void openDuplicate(full);
-                      }
-                    }}
-                    onDelete={(row) => {
-                      const full = group.testCases.find((item) => item.id === row.id);
-                      if (full) {
-                        void deleteRow(full);
-                      }
-                    }}
-                    onOutcomeChange={(row, outcome) => {
-                      const full = group.testCases.find((item) => item.id === row.id);
-                      if (full) {
-                        void changeOutcome(full, outcome);
-                      }
-                    }}
-                    onReorder={
-                      current?.document.meta.id === group.taskId
-                        ? (orderedIds) => {
-                            testCaseActions.reorder(orderedIds);
+                      <Group gap={6} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          size="sm"
+                          aria-label={
+                            expanded
+                              ? `Свернуть кейсы задачи ${group.taskShortLabel}`
+                              : `Показать кейсы задачи ${group.taskShortLabel}`
                           }
-                        : undefined
-                    }
-                    openingId={openingId}
-                    deletingId={deletingId}
-                    duplicatingId={duplicatingId}
-                    rowKeyPrefix={`${group.taskId}:`}
-                  />
-                </Accordion.Panel>
-              </Accordion.Item>
-            ))}
-          </Accordion>
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleGroup(group.taskId);
+                          }}
+                        >
+                          {expanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                        </ActionIcon>
+                        <Text size="sm" fw={600} truncate title={group.taskName}>
+                          {group.taskShortLabel}
+                        </Text>
+                        <Badge size="xs" variant="light">
+                          {group.testCases.length}
+                        </Badge>
+                      </Group>
+                      <Tooltip label="Открыть карточку задачи">
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          aria-label={`Открыть задачу ${group.taskShortLabel}`}
+                          loading={openingId === group.taskId}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void openTaskCard(group);
+                          }}
+                        >
+                          <IconClipboardList size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </Group>
+
+                    <Collapse in={expanded}>
+                      <Box className="tcm-task-list-subtasks" pt="xs" pb="sm">
+                        <TestCasesListTable
+                          rows={group.testCases}
+                          onOpen={(row) => {
+                            const full = findCase(group, row.id);
+                            if (full) {
+                              void openRow(full);
+                            }
+                          }}
+                          onDuplicate={(row) => {
+                            const full = findCase(group, row.id);
+                            if (full) {
+                              void openDuplicate(full);
+                            }
+                          }}
+                          onDelete={(row) => {
+                            const full = findCase(group, row.id);
+                            if (full) {
+                              void deleteRow(full);
+                            }
+                          }}
+                          onOutcomeChange={(row, outcome) => {
+                            const full = findCase(group, row.id);
+                            if (full) {
+                              void changeOutcome(full, outcome);
+                            }
+                          }}
+                          onReorder={
+                            current?.document.meta.id === group.taskId
+                              ? (orderedIds) => {
+                                  testCaseActions.reorder(orderedIds);
+                                }
+                              : undefined
+                          }
+                          openingId={openingId}
+                          deletingId={deletingId}
+                          duplicatingId={duplicatingId}
+                          rowKeyPrefix={`${group.taskId}:`}
+                        />
+                      </Box>
+                    </Collapse>
+                  </div>
+                );
+              })}
+            </Stack>
+          </Card>
         </FadeIn>
       ) : null}
 

@@ -30,6 +30,14 @@
   overscroll-behavior: contain;
 }
 
+.tcm-rich-text-editor mark,
+.tcm-rte-highlight,
+.tcm-rich-text-preview--zoomable mark {
+  border-radius: 2px;
+  padding: 0 0.12em;
+  color: inherit;
+}
+
 .tcm-rich-text-editor .tiptap,
 .tcm-rich-text-editor .ProseMirror,
 .tcm-rte-prose {
@@ -97,20 +105,26 @@
   cursor: nwse-resize;
 }
 
-.tcm-rte-image-delete {
-  position: absolute !important;
+.tcm-rte-image-actions {
+  position: absolute;
   top: 8px;
   right: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease;
-  box-shadow: var(--mantine-shadow-sm);
 }
 
-.tcm-rte-image-wrap:hover .tcm-rte-image-delete,
-.tcm-rte-image-wrap.is-selected .tcm-rte-image-delete {
+.tcm-rte-image-wrap:hover .tcm-rte-image-actions,
+.tcm-rte-image-wrap.is-selected .tcm-rte-image-actions {
   opacity: 1;
   pointer-events: auto;
+}
+
+.tcm-rte-image-actions .mantine-ActionIcon-root {
+  box-shadow: var(--mantine-shadow-sm);
 }
 
 .tcm-rte-image-wrap .tcm-image-resize-handle {
