@@ -20,7 +20,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { notifySuccess } from '@/application/errors/errorHandler';
 import { projectActions } from '@/application/project/projectActions';
@@ -34,6 +34,7 @@ import type { RecentTask } from '@/domain/types';
 import { getTaskShortLabel } from '@/domain/utils/taskDisplay';
 import {
   buildTaskTree,
+  collectAncestorIds,
   collectExpandableIds,
   filterTaskTree,
 } from '@/domain/utils/taskTree';
@@ -41,6 +42,21 @@ import { appStorageService } from '@/infrastructure/storage/appStorageService';
 import { AppRoutes } from '@/routes/paths';
 import { useAppStore } from '@/stores/useAppStore';
 import { useProjectStore } from '@/stores/useProjectStore';
+import { useUiStore } from '@/stores/useUiStore';
+
+function idsToKeepExpanded(tree: ReturnType<typeof buildTaskTree>, taskId: string): string[] {
+  const ancestors = collectAncestorIds(tree, taskId);
+  const expandable = new Set(collectExpandableIds(tree));
+  if (expandable.has(taskId)) {
+    return [...ancestors, taskId];
+  }
+  return ancestors;
+}
+
+function mergeExpandedIds(currentIds: string[], extra: string[]): string[] {
+  const missing = extra.filter((id) => !currentIds.includes(id));
+  return missing.length === 0 ? currentIds : [...currentIds, ...missing];
+}
 
 function matchesTaskQuery(
   query: string,
@@ -61,7 +77,8 @@ export function TasksListPage() {
   const current = useProjectStore((state) => state.current);
   const [createOpened, setCreateOpened] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedIds, setExpandedIds] = useState<string[]>([]);
+  const expandedIds = useUiStore((state) => state.taskListExpandedIds);
+  const setExpandedIds = useUiStore((state) => state.setTaskListExpandedIds);
   const [moveTask, setMoveTask] = useState<RecentTask | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const reduceMotion = useReducedMotion();
@@ -101,12 +118,30 @@ export function TasksListPage() {
     return filterTaskTree(tree, (task) => matchesTaskQuery(searchQuery, task));
   }, [tasksForTree, searchQuery]);
 
+  const restoredForTaskIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const taskId = current?.document.meta.id;
+    if (!taskId || taskTree.length === 0) {
+      return;
+    }
+    if (restoredForTaskIdRef.current === taskId) {
+      return;
+    }
+    const ancestors = idsToKeepExpanded(taskTree, taskId);
+    restoredForTaskIdRef.current = taskId;
+    if (ancestors.length === 0) {
+      return;
+    }
+    setExpandedIds((ids) => mergeExpandedIds(ids, ancestors));
+  }, [current?.document.meta.id, taskTree, setExpandedIds]);
+
   useEffect(() => {
     if (!searchQuery.trim()) {
       return;
     }
     setExpandedIds(collectExpandableIds(taskTree));
-  }, [searchQuery, taskTree]);
+  }, [searchQuery, taskTree, setExpandedIds]);
 
   const listEmpty = recentProjects.length === 0 && !(current && !current.filePath);
   const noMatches = !listEmpty && !showUnsaved && taskTree.length === 0;
@@ -137,6 +172,15 @@ export function TasksListPage() {
   };
 
   const openTask = async (filePath: string | null) => {
+    if (filePath && !filePath.startsWith('__unsaved__')) {
+      const task = tasksForTree.find((item) => item.filePath === filePath);
+      if (task) {
+        const ancestors = idsToKeepExpanded(taskTree, task.id);
+        if (ancestors.length > 0) {
+          setExpandedIds((ids) => mergeExpandedIds(ids, ancestors));
+        }
+      }
+    }
     if (!filePath || filePath.startsWith('__unsaved__')) {
       void navigate(AppRoutes.taskCurrent);
       return;

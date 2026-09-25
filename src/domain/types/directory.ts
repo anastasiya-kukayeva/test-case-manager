@@ -13,13 +13,31 @@ export type DirectoryPerson = {
   name: string;
   role: DirectoryRole;
   createdAt: string;
+  /** Default author used when a new task or test case is created. */
+  isDefault?: boolean;
 };
 
-/** Application name from the directory (справочник → Приложения). */
+/** Application name from the directory (справочник → Приложение). */
 export type DirectoryApplication = {
   id: string;
   name: string;
   createdAt: string;
+};
+
+/** Module name from the directory (справочник → Модуль). */
+export type DirectoryModule = {
+  id: string;
+  name: string;
+  createdAt: string;
+};
+
+/** Environment name from the directory (справочник → Среды). */
+export type DirectoryEnvironment = {
+  id: string;
+  name: string;
+  createdAt: string;
+  /** Default environment. */
+  isDefault?: boolean;
 };
 
 export function isDirectoryRole(value: unknown): value is DirectoryRole {

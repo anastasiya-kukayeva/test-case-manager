@@ -12,10 +12,12 @@ export type CreateProjectInput = {
   name: string;
   shortName?: string;
   application?: string;
+  module?: string;
   testObject?: string;
   testGoal?: RichTextContent;
   generalProvisions?: string;
   functionalRequirements?: RichTextContent;
+  risksAndLimitations?: RichTextContent;
   /** @deprecated */
   description?: string;
   /** @deprecated */
@@ -53,10 +55,12 @@ export const projectActions = {
           description: input.description?.trim() ?? '',
           author: input.author?.trim() ?? '',
           application: input.application?.trim() ?? '',
+          module: input.module?.trim() ?? '',
           testObject: input.testObject?.trim() ?? '',
           testGoal: input.testGoal,
           generalProvisions: input.generalProvisions?.trim() ?? '',
           functionalRequirements: input.functionalRequirements,
+          risksAndLimitations: input.risksAndLimitations,
         },
       });
 

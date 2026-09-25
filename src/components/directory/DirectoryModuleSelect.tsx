@@ -2,7 +2,7 @@ import { Select } from '@mantine/core';
 import { useMemo } from 'react';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
 
-type DirectoryApplicationSelectProps = {
+type DirectoryModuleSelectProps = {
   label?: string;
   value: string;
   onChange: (value: string) => void;
@@ -12,36 +12,33 @@ type DirectoryApplicationSelectProps = {
   placeholder?: string;
 };
 
-/**
- * Select an application name from the directory.
- * Keeps legacy free-text values visible if they are not in the directory.
- */
-export function DirectoryApplicationSelect({
-  label = 'Приложение',
+/** Select a module name from the directory. Keeps a saved value visible if it left the list. */
+export function DirectoryModuleSelect({
+  label = 'Модуль',
   value,
   onChange,
-  description = 'Выберите приложение из списка',
+  description = 'Выберите модуль из справочника',
   required,
   error,
-  placeholder = 'Выберите приложение',
-}: DirectoryApplicationSelectProps) {
-  const applications = useDirectoryStore((state) => state.applications);
+  placeholder = 'Выберите модуль',
+}: DirectoryModuleSelectProps) {
+  const modules = useDirectoryStore((state) => state.modules);
 
   const data = useMemo(() => {
-    const names = applications.map((item) => item.name);
+    const names = modules.map((item) => item.name);
     if (value.trim() && !names.includes(value)) {
       return [value, ...names];
     }
     return names;
-  }, [applications, value]);
+  }, [modules, value]);
 
-  const emptyHint = 'Список приложений пуст — заполните в меню «Справочник»';
+  const emptyHint = 'Список модулей пуст — заполните в меню «Справочник»';
 
   return (
     <Select
       label={label}
       description={description}
-      placeholder={applications.length === 0 ? emptyHint : placeholder}
+      placeholder={modules.length === 0 ? emptyHint : placeholder}
       data={data}
       value={value || null}
       onChange={(next) => onChange(next ?? '')}

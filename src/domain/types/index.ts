@@ -11,6 +11,7 @@ export type {
   TestCaseSummary,
   RichTextContent,
 } from '@/domain/types/testCase';
+export { isMarkedForRegression } from '@/domain/types/testCase';
 export type {
   TaskDocument,
   TaskMeta,
@@ -33,5 +34,11 @@ export {
 } from '@/domain/types/task';
 export type { AppSettings, AutosaveSettings, StorageSettings, ExportSettings, HotkeySettings } from '@/domain/types/settings';
 export { DEFAULT_APP_SETTINGS } from '@/domain/types/settings';
-export type { DirectoryPerson, DirectoryRole, DirectoryApplication } from '@/domain/types/directory';
+export type {
+  DirectoryPerson,
+  DirectoryRole,
+  DirectoryApplication,
+  DirectoryModule,
+  DirectoryEnvironment,
+} from '@/domain/types/directory';
 export { DIRECTORY_ROLES, DIRECTORY_ROLE_LABELS, isDirectoryRole } from '@/domain/types/directory';

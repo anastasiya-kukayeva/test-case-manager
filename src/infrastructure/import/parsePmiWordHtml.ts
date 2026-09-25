@@ -256,6 +256,7 @@ export function parsedPmiToTestCase(parsed: ParsedPmiTestCase, number: string): 
     verificationAttachments: [],
     testOutcome: parsed.testOutcome,
     includeInRegression: false,
+    includeInTaskRegression: false,
     createdAt: now,
     updatedAt: now,
   };

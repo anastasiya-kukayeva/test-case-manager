@@ -119,6 +119,7 @@ export function testCaseToFormValues(testCase: TestCase): TestCaseEditorFormValu
     verificationAttachments: [],
     testOutcome: testCase.testOutcome,
     includeInRegression: Boolean(testCase.includeInRegression),
+    includeInTaskRegression: Boolean(testCase.includeInTaskRegression),
   };
 }
 
@@ -144,6 +145,7 @@ export function formValuesToTestCasePatch(
     verificationAttachments: [],
     testOutcome: values.testOutcome,
     includeInRegression: values.includeInRegression,
+    includeInTaskRegression: values.includeInTaskRegression,
     updatedAt: new Date().toISOString(),
   };
 }

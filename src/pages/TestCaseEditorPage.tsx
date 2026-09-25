@@ -1,18 +1,25 @@
 import { Alert, Button, Stack, Text, Title } from '@mantine/core';
 import { IconArrowLeft, IconInfoCircle } from '@tabler/icons-react';
 import { useCallback, useMemo, useRef, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { notifySuccess } from '@/application/errors/errorHandler';
 import { projectActions } from '@/application/project/projectActions';
 import { formValuesToTestCasePatch } from '@/application/testCases/testCaseFormMapper';
 import { TestCaseEditorForm } from '@/components/editor/TestCaseEditorForm';
 import type { TestCaseEditorFormValues } from '@/domain/schemas/testCaseSchema';
+import { isRegressionMode, type RegressionMode } from '@/application/regression/loadRegressionGroups';
 import { AppRoutes } from '@/routes/paths';
 import { useProjectStore } from '@/stores/useProjectStore';
 
 export function TestCaseEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const navState = location.state as { from?: string; mode?: string } | null;
+  const fromRegression = navState?.from === 'regression';
+  const regressionMode: RegressionMode = isRegressionMode(navState?.mode) ? navState.mode : 'suite';
+  const listRoute = fromRegression ? AppRoutes.regressionCases : AppRoutes.testCases;
+  const listState = fromRegression ? { mode: regressionMode } : undefined;
   const current = useProjectStore((state) => state.current);
   const updateTestCase = useProjectStore((state) => state.updateTestCase);
   const flushRef = useRef<(() => void) | null>(null);
@@ -44,11 +51,11 @@ export function TestCaseEditorPage() {
     try {
       flushRef.current?.();
       await projectActions.saveIfDirty({ silent: true, allowSaveAs: true });
-      void navigate(AppRoutes.testCases);
+      void navigate(listRoute, { state: listState });
     } finally {
       leavingRef.current = false;
     }
-  }, [navigate]);
+  }, [navigate, listRoute, listState]);
 
   // Flush + save when leaving via sidebar / route change (not only the Back button).
   useEffect(() => {
@@ -79,9 +86,9 @@ export function TestCaseEditorPage() {
         <Button
           w="fit-content"
           leftSection={<IconArrowLeft size={16} />}
-          onClick={() => void navigate(AppRoutes.testCases)}
+          onClick={() => void navigate(listRoute, { state: listState })}
         >
-          К списку тест-кейсов
+          {fromRegression ? 'К списку регресса' : 'К списку тест-кейсов'}
         </Button>
       </Stack>
     );
@@ -111,7 +118,7 @@ export function TestCaseEditorPage() {
             try {
               persist(values, true);
               await projectActions.saveIfDirty({ silent: true, allowSaveAs: true });
-              void navigate(AppRoutes.testCases);
+              void navigate(listRoute, { state: listState });
             } finally {
               leavingRef.current = false;
             }

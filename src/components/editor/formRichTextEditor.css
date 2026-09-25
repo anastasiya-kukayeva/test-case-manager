@@ -170,6 +170,17 @@
   cursor: zoom-in;
 }
 
+.tcm-rich-text-editor pre .tcm-fence-delete {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  z-index: 2;
+}
+
+.tcm-rich-text-editor pre .tcm-fence-delete .mantine-ActionIcon-root {
+  box-shadow: var(--mantine-shadow-sm);
+}
+
 .tcm-rich-text-editor .ProseMirror pre,
 .tcm-rich-text-editor pre {
   position: relative;
@@ -179,7 +190,7 @@
   font-family: Consolas, Monaco, 'Courier New', monospace;
   font-size: 0.85rem;
   line-height: 1.45;
-  white-space: pre-wrap;
+  white-space: pre-wrap !important;
   overflow-x: auto;
 }
 
@@ -236,6 +247,7 @@
   background: #f4f6f8;
   border: 1px solid #d8dee6;
   border-left: 4px solid #228be6;
+  color: #0b1220;
 }
 
 .tcm-rich-text-editor .ProseMirror pre.tcm-log-block,
@@ -243,7 +255,7 @@
 .tcm-rich-text-editor pre[data-type='log'],
 .tcm-rich-text-editor pre:has(code.language-log) {
   background: #1e1e1e;
-  color: #e6e6e6;
+  color: #ffffff;
   border: 1px solid #333;
   border-left: 4px solid #fab005;
 }
@@ -254,6 +266,17 @@
   padding: 0;
   font-size: inherit;
   color: inherit;
+}
+
+.tcm-rich-text-editor pre.tcm-code-block code,
+.tcm-rich-text-editor pre:not(.tcm-log-block):not(:has(code.language-log)) code {
+  color: #0b1220;
+}
+
+.tcm-rich-text-editor pre.tcm-log-block code,
+.tcm-rich-text-editor pre[data-type='log'] code,
+.tcm-rich-text-editor pre code.language-log {
+  color: #ffffff;
 }
 
 .tcm-rich-text-editor .ProseMirror ul,

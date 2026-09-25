@@ -3,6 +3,7 @@ import {
   Button,
   Card,
   Group,
+  SimpleGrid,
   Stack,
   Text,
   Textarea,
@@ -23,6 +24,7 @@ import { exportActions } from '@/application/export/exportActions';
 import { projectActions } from '@/application/project/projectActions';
 import { FormRichTextEditor } from '@/components/editor/FormRichTextEditor';
 import { DirectoryApplicationSelect } from '@/components/directory/DirectoryApplicationSelect';
+import { DirectoryModuleSelect } from '@/components/directory/DirectoryModuleSelect';
 import { TestObjectLinksField } from '@/components/project/TestObjectLinksField';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { getTaskShortLabel } from '@/domain/utils/taskDisplay';
@@ -179,10 +181,27 @@ export function TaskDetailPage() {
               }}
               maxLength={80}
             />
-            <DirectoryApplicationSelect
-              value={current.document.meta.application ?? ''}
-              onChange={(application) => updateProjectMeta({ application })}
+            <TextInput
+              label="Номер релиза"
+              description="На титульный лист Word — под названием задачи, по центру"
+              placeholder="Например: Релиз 9"
+              value={current.document.meta.releaseNumber ?? ''}
+              onChange={(event) => {
+                const value = event.currentTarget?.value ?? event.target?.value ?? '';
+                updateProjectMeta({ releaseNumber: value });
+              }}
+              maxLength={80}
             />
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+              <DirectoryApplicationSelect
+                value={current.document.meta.application ?? ''}
+                onChange={(application) => updateProjectMeta({ application })}
+              />
+              <DirectoryModuleSelect
+                value={current.document.meta.module ?? ''}
+                onChange={(module) => updateProjectMeta({ module })}
+              />
+            </SimpleGrid>
             <Textarea
               label="Объект испытаний"
               description="Описание объекта; ссылки задаются отдельно ниже"
@@ -229,6 +248,17 @@ export function TaskDetailPage() {
                   updateProjectMeta({ functionalRequirements })
                 }
                 placeholder="Требования…"
+                minHeight={120}
+              />
+            </div>
+            <div>
+              <Text size="sm" fw={500} mb={6}>
+                Риски и ограничения
+              </Text>
+              <FormRichTextEditor
+                value={current.document.meta.risksAndLimitations ?? { html: '', plainText: '' }}
+                onChange={(risksAndLimitations) => updateProjectMeta({ risksAndLimitations })}
+                placeholder="Риски и ограничения…"
                 minHeight={120}
               />
             </div>

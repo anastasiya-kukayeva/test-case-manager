@@ -117,6 +117,7 @@ export const testCaseActions = {
         verificationAttachments: structuredClone(existing.verificationAttachments),
         testOutcome: existing.testOutcome,
         includeInRegression: existing.includeInRegression,
+        includeInTaskRegression: existing.includeInTaskRegression,
       });
 
       useProjectStore.getState().addTestCase(copy);

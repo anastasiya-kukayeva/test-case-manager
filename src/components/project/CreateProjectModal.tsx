@@ -2,6 +2,7 @@ import {
   Button,
   Group,
   Modal,
+  SimpleGrid,
   ScrollArea,
   Stack,
   Text,
@@ -11,6 +12,7 @@ import {
 import { useEffect, useState, type ChangeEvent } from 'react';
 import { projectActions } from '@/application/project/projectActions';
 import { DirectoryApplicationSelect } from '@/components/directory/DirectoryApplicationSelect';
+import { DirectoryModuleSelect } from '@/components/directory/DirectoryModuleSelect';
 import { FormRichTextEditor } from '@/components/editor/FormRichTextEditor';
 import { createEmptyRichText } from '@/domain/factories/createEntities';
 import type { RichTextContent } from '@/domain/types';
@@ -27,10 +29,12 @@ type CreateTaskFormState = {
   name: string;
   shortName: string;
   application: string;
+  module: string;
   testObject: string;
   testGoal: RichTextContent;
   generalProvisions: string;
   functionalRequirements: RichTextContent;
+  risksAndLimitations: RichTextContent;
 };
 
 /** Task name must comfortably fit long methodology titles (500+ chars). */
@@ -41,10 +45,12 @@ const emptyForm = (application = ''): CreateTaskFormState => ({
   name: '',
   shortName: '',
   application,
+  module: '',
   testObject: '',
   testGoal: createEmptyRichText(),
   generalProvisions: '',
   functionalRequirements: createEmptyRichText(),
+  risksAndLimitations: createEmptyRichText(),
 });
 
 function readInputValue(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): string {
@@ -90,10 +96,12 @@ export function CreateProjectModal({
       name,
       shortName: form.shortName.trim(),
       application: form.application.trim(),
+      module: form.module.trim(),
       testObject: form.testObject,
       testGoal: form.testGoal,
       generalProvisions: form.generalProvisions,
       functionalRequirements: form.functionalRequirements,
+      risksAndLimitations: form.risksAndLimitations,
     });
     setSubmitting(false);
 
@@ -157,10 +165,16 @@ export function CreateProjectModal({
               maxLength={TASK_SHORT_NAME_MAX_LENGTH}
             />
 
-            <DirectoryApplicationSelect
-              value={form.application}
-              onChange={(application) => setForm((prev) => ({ ...prev, application }))}
-            />
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+              <DirectoryApplicationSelect
+                value={form.application}
+                onChange={(application) => setForm((prev) => ({ ...prev, application }))}
+              />
+              <DirectoryModuleSelect
+                value={form.module}
+                onChange={(module) => setForm((prev) => ({ ...prev, module }))}
+              />
+            </SimpleGrid>
 
             <Textarea
               label="Объект испытаний"
@@ -217,6 +231,23 @@ export function CreateProjectModal({
                   setForm((prev) => ({ ...prev, functionalRequirements }))
                 }
                 placeholder="Перечислите требования…"
+                minHeight={140}
+              />
+            </div>
+
+            <div>
+              <Text size="sm" fw={500} mb={6}>
+                Риски и ограничения
+              </Text>
+              <Text size="xs" c="dimmed" mb={6}>
+                Поддерживаются маркированные и нумерованные списки
+              </Text>
+              <FormRichTextEditor
+                value={form.risksAndLimitations}
+                onChange={(risksAndLimitations) =>
+                  setForm((prev) => ({ ...prev, risksAndLimitations }))
+                }
+                placeholder="Перечислите риски и ограничения…"
                 minHeight={140}
               />
             </div>

@@ -30,6 +30,8 @@ export type TaskMeta = {
   name: string;
   /** Short label for sidebar / lists */
   shortName: string;
+  /** Release number shown on the Word title page */
+  releaseNumber: string;
   /** @deprecated kept for backward compatibility with older *.tctask files */
   description: string;
   /** @deprecated kept for backward compatibility with older *.tctask files */
@@ -40,12 +42,16 @@ export type TaskMeta = {
   testObjectLinks: NamedLink[];
   /** Приложение из справочника (название) */
   application: string;
+  /** Модуль из справочника (название) */
+  module: string;
   /** Цель испытаний — rich text со списками */
   testGoal: RichTextContent;
   /** Общие положения */
   generalProvisions: string;
   /** Требования к функциональности — rich text со списками */
   functionalRequirements: RichTextContent;
+  /** Риски и ограничения — rich text со списками */
+  risksAndLimitations: RichTextContent;
   createdAt: string;
   updatedAt: string;
   /** Parent task id when this task is nested under another */

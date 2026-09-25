@@ -32,6 +32,17 @@ export type ElectronStoreSchema = {
     name: string;
     createdAt: string;
   }>;
+  directoryModules: Array<{
+    id: string;
+    name: string;
+    createdAt: string;
+  }>;
+  directoryEnvironments: Array<{
+    id: string;
+    name: string;
+    createdAt: string;
+  }>;
+  directoryApplicationsSeeded: boolean;
 };
 
 const defaultSettings = {
@@ -67,5 +78,8 @@ export const electronStore = new Store<ElectronStoreSchema>({
     recoveryMeta: null,
     directoryPeople: [],
     directoryApplications: [],
+    directoryModules: [],
+    directoryEnvironments: [],
+    directoryApplicationsSeeded: false,
   },
 });

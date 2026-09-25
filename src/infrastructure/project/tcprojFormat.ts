@@ -167,15 +167,18 @@ export function validateTaskDocument(value: unknown): TaskDocument {
       id: String(meta.id),
       name: String(meta.name),
       shortName: typeof meta.shortName === 'string' ? meta.shortName : '',
+      releaseNumber: typeof meta.releaseNumber === 'string' ? meta.releaseNumber : '',
       description: typeof meta.description === 'string' ? meta.description : '',
       author: typeof meta.author === 'string' ? meta.author : '',
       testObject: typeof meta.testObject === 'string' ? meta.testObject : '',
       testObjectLinks: parseNamedLinks(meta.testObjectLinks),
       application: typeof meta.application === 'string' ? meta.application : '',
+      module: typeof meta.module === 'string' ? meta.module : '',
       testGoal: parseRichText(meta.testGoal),
       generalProvisions:
         typeof meta.generalProvisions === 'string' ? meta.generalProvisions : '',
       functionalRequirements: parseRichText(meta.functionalRequirements),
+      risksAndLimitations: parseRichText(meta.risksAndLimitations),
       createdAt: String(meta.createdAt),
       updatedAt: String(meta.updatedAt),
       parentTaskId:
@@ -191,6 +194,7 @@ export function validateTaskDocument(value: unknown): TaskDocument {
         typeof testCase.businessAnalyst === 'string' ? testCase.businessAnalyst : '',
       steps: normalizeStepsContent((testCase as { steps?: unknown }).steps),
       includeInRegression: testCase.includeInRegression === true,
+      includeInTaskRegression: testCase.includeInTaskRegression === true,
     })),
   };
 }

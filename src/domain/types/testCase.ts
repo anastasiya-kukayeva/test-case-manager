@@ -29,11 +29,21 @@ export type TestCase = {
   verificationResult: RichTextContent;
   verificationAttachments: TestAttachment[];
   testOutcome: TestResultOutcome;
-  /** Marker for a future regression suite. Not used in export yet. */
+  /** Marker for the shared regression list. */
   includeInRegression: boolean;
+  /** Marker for this task's own regression list. */
+  includeInTaskRegression: boolean;
   createdAt: string;
   updatedAt: string;
 };
+
+/** Either regression checkbox puts the case in the regression list once. */
+export function isMarkedForRegression(testCase: {
+  includeInRegression?: boolean;
+  includeInTaskRegression?: boolean;
+}): boolean {
+  return Boolean(testCase.includeInRegression || testCase.includeInTaskRegression);
+}
 
 export type TestCaseSummary = Pick<
   TestCase,

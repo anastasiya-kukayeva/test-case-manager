@@ -9,6 +9,7 @@ import {
   Loader,
   Stack,
   Text,
+  TextInput,
   Title,
   Tooltip,
 } from '@mantine/core';
@@ -18,8 +19,10 @@ import {
   IconChevronRight,
   IconClipboardList,
   IconRefresh,
+  IconSearch,
+  IconX,
 } from '@tabler/icons-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   loadCatalogTestCaseGroups,
@@ -42,6 +45,21 @@ function findCase(group: CatalogTaskGroup, id: string): CatalogTestCaseRow | und
   return group.testCases.find((item) => item.id === id);
 }
 
+function matchesCaseQuery(row: CatalogTestCaseRow, query: string): boolean {
+  const needle = query.trim().toLocaleLowerCase('ru');
+  if (!needle) {
+    return true;
+  }
+  const haystacks = [
+    row.number,
+    row.title,
+    row.goal?.plainText ?? '',
+    row.taskName,
+    row.taskShortLabel,
+  ];
+  return haystacks.some((value) => value.toLocaleLowerCase('ru').includes(needle));
+}
+
 export function AllTestCasesPage() {
   const navigate = useNavigate();
   const recentProjects = useAppStore((state) => state.recentProjects);
@@ -55,6 +73,7 @@ export function AllTestCasesPage() {
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [duplicateSource, setDuplicateSource] = useState<CatalogTestCaseRow | null>(null);
   const [duplicateSuggestedNumber, setDuplicateSuggestedNumber] = useState('1');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -190,7 +209,21 @@ export function AllTestCasesPage() {
     );
   };
 
-  const totalCount = groups.reduce((sum, group) => sum + group.testCases.length, 0);
+  const query = searchQuery.trim();
+
+  const visibleGroups = useMemo(() => {
+    if (!query) {
+      return groups;
+    }
+    return groups
+      .map((group) => ({
+        ...group,
+        testCases: group.testCases.filter((item) => matchesCaseQuery(item, query)),
+      }))
+      .filter((group) => group.testCases.length > 0);
+  }, [groups, query]);
+
+  const totalCount = visibleGroups.reduce((sum, group) => sum + group.testCases.length, 0);
 
   return (
     <Stack gap="lg">
@@ -218,6 +251,27 @@ export function AllTestCasesPage() {
         </Group>
       </FadeIn>
 
+      <TextInput
+        placeholder="Поиск по номеру, цели или задаче…"
+        leftSection={<IconSearch size={16} />}
+        value={searchQuery}
+        onChange={(event) => {
+          setSearchQuery(event.currentTarget?.value ?? event.target?.value ?? '');
+        }}
+        rightSection={
+          searchQuery.trim() ? (
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              aria-label="Очистить поиск"
+              onClick={() => setSearchQuery('')}
+            >
+              <IconX size={14} />
+            </ActionIcon>
+          ) : null
+        }
+      />
+
       {error ? (
         <Alert color="red" icon={<IconAlertCircle size={16} />} title="Ошибка загрузки">
           {error}
@@ -240,12 +294,18 @@ export function AllTestCasesPage() {
         </Alert>
       ) : null}
 
-      {!loading && groups.length > 0 ? (
+      {!loading && groups.length > 0 && visibleGroups.length === 0 ? (
+        <Alert color="gray" title="Ничего не найдено">
+          Нет тест-кейсов по запросу «{query}».
+        </Alert>
+      ) : null}
+
+      {!loading && visibleGroups.length > 0 ? (
         <FadeIn>
           <Card withBorder padding="lg" radius="lg">
             <Stack gap={4}>
-              {groups.map((group) => {
-                const expanded = expandedIds.includes(group.taskId);
+              {visibleGroups.map((group) => {
+                const expanded = query.length > 0 || expandedIds.includes(group.taskId);
                 return (
                   <div key={group.taskId}>
                     <Group

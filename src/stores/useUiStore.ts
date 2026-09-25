@@ -26,6 +26,11 @@ type UiStoreState = {
 
   requestFocusSearch: () => void;
 
+  /** Expanded parent task ids on the tasks list; survives opening a task and coming back. */
+  taskListExpandedIds: string[];
+
+  setTaskListExpandedIds: (ids: string[] | ((current: string[]) => string[])) => void;
+
 };
 
 
@@ -55,6 +60,13 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
   focusSearchRequestId: 0,
 
   requestFocusSearch: () => set({ focusSearchRequestId: get().focusSearchRequestId + 1 }),
+
+  taskListExpandedIds: [],
+
+  setTaskListExpandedIds: (ids) =>
+    set((state) => ({
+      taskListExpandedIds: typeof ids === 'function' ? ids(state.taskListExpandedIds) : ids,
+    })),
 
 }));
 

@@ -272,19 +272,36 @@ export function TestCaseEditorForm({
               title="7. Регресс"
               description="Отметка для будущей выгрузки. Сейчас ни на что не влияет"
             >
-              <Controller
-                name="includeInRegression"
-                control={control}
-                render={({ field }) => (
-                  <Checkbox
-                    label="Добавить в регресс?"
-                    checked={field.value}
-                    onChange={(event) => {
-                      field.onChange(event.currentTarget.checked);
-                    }}
-                  />
-                )}
-              />
+              <Group gap="xl" align="flex-start" wrap="wrap">
+                <Controller
+                  name="includeInRegression"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      label="Добавить в регресс?"
+                      checked={field.value}
+                      onChange={(event) => {
+                        field.onChange(event.currentTarget.checked);
+                      }}
+                      radius={2}
+                    />
+                  )}
+                />
+                <Controller
+                  name="includeInTaskRegression"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      label="Добавить в регресс задачи?"
+                      checked={field.value}
+                      onChange={(event) => {
+                        field.onChange(event.currentTarget.checked);
+                      }}
+                      radius={2}
+                    />
+                  )}
+                />
+              </Group>
             </EditorSection>
           </Accordion>
         </Stack>

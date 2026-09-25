@@ -6,6 +6,8 @@ import {
   isDirectoryRole,
   type AppSettings,
   type DirectoryApplication,
+  type DirectoryEnvironment,
+  type DirectoryModule,
   type DirectoryPerson,
   type RecentProject,
 } from '@/domain/types';
@@ -148,6 +150,7 @@ export const appStorageService = {
           name,
           role: item.role,
           createdAt,
+          isDefault: item.role === 'author' && item.isDefault === true,
         });
         continue;
       }
@@ -210,6 +213,71 @@ export const appStorageService = {
 
   async saveDirectoryApplications(applications: DirectoryApplication[]): Promise<void> {
     await storeSet(StorageKeys.DIRECTORY_APPLICATIONS, applications);
+  },
+
+  async getDirectoryModules(): Promise<DirectoryModule[]> {
+    const items = await storeGet<Array<Partial<DirectoryModule>>>(StorageKeys.DIRECTORY_MODULES);
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    return items
+      .filter(
+        (item): item is DirectoryModule =>
+          Boolean(item) &&
+          typeof item.id === 'string' &&
+          typeof item.name === 'string' &&
+          item.name.trim().length > 0,
+      )
+      .map((item) => ({
+        id: item.id,
+        name: item.name.trim(),
+        createdAt:
+          typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  },
+
+  async saveDirectoryModules(modules: DirectoryModule[]): Promise<void> {
+    await storeSet(StorageKeys.DIRECTORY_MODULES, modules);
+  },
+
+  async getDirectoryEnvironments(): Promise<DirectoryEnvironment[]> {
+    const items = await storeGet<Array<Partial<DirectoryEnvironment>>>(
+      StorageKeys.DIRECTORY_ENVIRONMENTS,
+    );
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    return items
+      .filter(
+        (item): item is DirectoryEnvironment =>
+          Boolean(item) &&
+          typeof item.id === 'string' &&
+          typeof item.name === 'string' &&
+          item.name.trim().length > 0,
+      )
+      .map((item) => ({
+        id: item.id,
+        name: item.name.trim(),
+        createdAt:
+          typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
+        isDefault: item.isDefault === true,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  },
+
+  async saveDirectoryEnvironments(environments: DirectoryEnvironment[]): Promise<void> {
+    await storeSet(StorageKeys.DIRECTORY_ENVIRONMENTS, environments);
+  },
+
+  async isDirectoryApplicationsSeeded(): Promise<boolean> {
+    return Boolean(await storeGet<boolean>(StorageKeys.DIRECTORY_APPLICATIONS_SEEDED));
+  },
+
+  async markDirectoryApplicationsSeeded(): Promise<void> {
+    await storeSet(StorageKeys.DIRECTORY_APPLICATIONS_SEEDED, true);
   },
 
   isAvailable(): boolean {

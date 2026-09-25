@@ -14,6 +14,21 @@ const AllTestCasesPage = lazy(async () => {
   return { default: module.AllTestCasesPage };
 });
 
+const RegressionPage = lazy(async () => {
+  const module = await import('@/pages/RegressionPage');
+  return { default: module.RegressionPage };
+});
+
+const RegressionCasesPage = lazy(async () => {
+  const module = await import('@/pages/RegressionCasesPage');
+  return { default: module.RegressionCasesPage };
+});
+
+const RegressionBrowsePage = lazy(async () => {
+  const module = await import('@/pages/RegressionBrowsePage');
+  return { default: module.RegressionBrowsePage };
+});
+
 const TestCasesPage = lazy(async () => {
   const module = await import('@/pages/TestCasesPage');
   return { default: module.TestCasesPage };
@@ -55,6 +70,30 @@ export function AppRouter() {
           element={
             <LazyPage>
               <AllTestCasesPage />
+            </LazyPage>
+          }
+        />
+        <Route
+          path={AppRoutes.regression}
+          element={
+            <LazyPage>
+              <RegressionPage />
+            </LazyPage>
+          }
+        />
+        <Route
+          path={AppRoutes.regressionBrowse}
+          element={
+            <LazyPage>
+              <RegressionBrowsePage />
+            </LazyPage>
+          }
+        />
+        <Route
+          path={AppRoutes.regressionCases}
+          element={
+            <LazyPage>
+              <RegressionCasesPage />
             </LazyPage>
           }
         />

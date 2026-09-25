@@ -67,6 +67,7 @@ export const testCaseEditorSchema = z.object({
   verificationAttachments: z.array(testAttachmentSchema),
   testOutcome: z.enum(['passed', 'failed']).nullable(),
   includeInRegression: z.boolean(),
+  includeInTaskRegression: z.boolean(),
 });
 
 export type TestCaseEditorFormValues = z.infer<typeof testCaseEditorSchema>;

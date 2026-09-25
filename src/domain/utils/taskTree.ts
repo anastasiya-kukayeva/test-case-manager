@@ -71,6 +71,45 @@ export function collectDescendantIds(nodes: TaskTreeNode[], rootId: string): Set
   return ids;
 }
 
+/** Walk parent links to the top task. Unknown parents stop the walk. */
+export function rootTaskId(
+  tasks: Array<Pick<RecentTask, 'id' | 'parentTaskId'>>,
+  taskId: string,
+): string {
+  const byId = new Map(tasks.map((task) => [task.id, task]));
+  let id = taskId;
+  const seen = new Set<string>();
+  while (!seen.has(id)) {
+    seen.add(id);
+    const parentId = byId.get(id)?.parentTaskId?.trim();
+    if (!parentId || parentId === id || !byId.has(parentId)) {
+      return id;
+    }
+    id = parentId;
+  }
+  return id;
+}
+
+/** Root task plus every nested task under it. */
+export function collectSubtreeTaskIds(
+  tasks: Array<Pick<RecentTask, 'id' | 'parentTaskId'>>,
+  rootId: string,
+): Set<string> {
+  const ids = new Set<string>([rootId]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const task of tasks) {
+      const parentId = task.parentTaskId?.trim();
+      if (parentId && ids.has(parentId) && !ids.has(task.id)) {
+        ids.add(task.id);
+        grew = true;
+      }
+    }
+  }
+  return ids;
+}
+
 export function canNestTask(
   tasks: RecentTask[],
   taskId: string,

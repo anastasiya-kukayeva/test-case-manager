@@ -1,5 +1,5 @@
 import { execSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -57,15 +57,30 @@ function readPackageVersion() {
   return parseSemver(pkg.version) ?? { major: 1, minor: 0, patch: 0, text: '1.0.0' };
 }
 
+function hasInstaller(dir) {
+  return readdirSync(dir).some((name) => /\.exe$/i.test(name) && !name.toLowerCase().endsWith('.blockmap'));
+}
+
 /** @returns {Semver[]} */
 function existingReleaseVersions() {
   if (!existsSync(releaseRoot)) {
     return [];
   }
   return readdirSync(releaseRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
+    .filter((entry) => entry.isDirectory() && hasInstaller(path.join(releaseRoot, entry.name)))
     .map((entry) => parseSemver(entry.name))
     .filter((version) => version !== null);
+}
+
+function removeIfExists(dir) {
+  if (!existsSync(dir)) {
+    return;
+  }
+  try {
+    rmSync(dir, { recursive: true, force: true });
+  } catch (error) {
+    console.warn(`[build] could not remove ${dir}: ${error.message}`);
+  }
 }
 
 /**
@@ -92,12 +107,14 @@ function nextReleaseVersion() {
 /**
  * @param {string} command
  * @param {string[]} args
+ * @param {NodeJS.ProcessEnv} [extraEnv]
  */
-function run(command, args) {
+function run(command, args, extraEnv) {
   const result = spawnSync(command, args, {
     cwd: root,
     stdio: 'inherit',
     shell: true,
+    env: extraEnv ? { ...process.env, ...extraEnv } : process.env,
   });
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
@@ -126,11 +143,31 @@ if (version !== current) {
 }
 
 const outDir = path.posix.join('release', version);
-mkdirSync(path.join(root, outDir), { recursive: true });
+const absOutDir = path.join(root, outDir);
+mkdirSync(absOutDir, { recursive: true });
+removeIfExists(path.join(absOutDir, 'win-unpacked.tmp'));
+removeIfExists(path.join(absOutDir, 'win-unpacked'));
 console.log(`[build] output → ${outDir}`);
+
+const electronDist = path.join(root, 'node_modules', 'electron', 'dist');
+if (!existsSync(path.join(electronDist, 'electron.exe'))) {
+  console.error(`[build] missing Electron binary: ${path.join(electronDist, 'electron.exe')}`);
+  process.exit(1);
+}
+
+const renameRetry = path.join(root, 'scripts', 'win-fs-rename-retry.cjs').replaceAll('\\', '/');
+const nodeOptions = [process.env.NODE_OPTIONS, `--require ${renameRetry}`].filter(Boolean).join(' ');
 
 run('npx', ['tsc', '-b']);
 run('npx', ['vite', 'build']);
-run('npx', ['electron-builder', `--config.directories.output=${outDir}`]);
+run(
+  'npx',
+  [
+    'electron-builder',
+    `--config.directories.output=${outDir}`,
+    `--config.electronDist=${electronDist.replaceAll('\\', '/')}`,
+  ],
+  { NODE_OPTIONS: nodeOptions },
+);
 
 console.log(`[build] done: ${outDir}`);

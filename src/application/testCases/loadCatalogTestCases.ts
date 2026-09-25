@@ -1,4 +1,4 @@
-import type { TestCase, RecentTask } from '@/domain/types';
+import { isMarkedForRegression, type TestCase, type RecentTask } from '@/domain/types';
 import { getTaskShortLabel } from '@/domain/utils/taskDisplay';
 import { projectFileService } from '@/infrastructure/project/projectFileService';
 import { useAppStore } from '@/stores/useAppStore';
@@ -34,11 +34,18 @@ function toCatalogRows(
   }));
 }
 
+export type LoadCatalogOptions = {
+  /** Keep cases marked by either regression checkbox, once each. */
+  onlyRegression?: boolean;
+};
+
 /**
  * Collect test cases from the open task (in-memory) and all recent task files,
  * grouped by task. Does not switch the currently open task.
  */
-export async function loadCatalogTestCaseGroups(): Promise<CatalogTaskGroup[]> {
+export async function loadCatalogTestCaseGroups(
+  options?: LoadCatalogOptions,
+): Promise<CatalogTaskGroup[]> {
   const recentProjects = useAppStore.getState().recentProjects;
   const current = useProjectStore.getState().current;
   const groups: CatalogTaskGroup[] = [];
@@ -89,5 +96,12 @@ export async function loadCatalogTestCaseGroups(): Promise<CatalogTaskGroup[]> {
     }
   }
 
-  return groups.filter((group) => group.testCases.length > 0);
+  const filtered = options?.onlyRegression
+    ? groups.map((group) => ({
+        ...group,
+        testCases: group.testCases.filter((testCase) => isMarkedForRegression(testCase)),
+      }))
+    : groups;
+
+  return filtered.filter((group) => group.testCases.length > 0);
 }

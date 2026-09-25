@@ -11,7 +11,6 @@ import {
   IconPhotoPlus,
   IconUnderline,
 } from '@tabler/icons-react';
-import CodeBlock from '@tiptap/extension-code-block';
 import Color from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -22,6 +21,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { useMemo, useRef, useState } from 'react';
 import { PhotoSlider } from 'react-photo-view';
 import { extractImageFilesFromClipboard } from '@/application/testCases/screenshotHelpers';
+import { DeletableCodeBlock } from '@/components/editor/DeletableCodeBlock';
 import { DeletableImage } from '@/components/editor/DeletableImage';
 import {
   canSinkListItem,
@@ -118,7 +118,7 @@ function createExtensions(placeholder: string) {
         class: 'tcm-rte-highlight',
       },
     }),
-    CodeBlock.configure({
+    DeletableCodeBlock.configure({
       HTMLAttributes: {
         class: 'tcm-code-block',
         spellcheck: 'false',

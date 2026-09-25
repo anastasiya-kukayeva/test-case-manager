@@ -19,9 +19,13 @@ type TaskTreeListProps = {
   busyKey: string | null;
   onToggle: (taskId: string) => void;
   onOpen: (filePath: string) => void;
-  onCopy: (task: RecentTask) => void;
-  onMove: (task: RecentTask) => void;
-  onRemove: (filePath: string, name: string) => void;
+  onCopy?: (task: RecentTask) => void;
+  onMove?: (task: RecentTask) => void;
+  onRemove?: (filePath: string, name: string) => void;
+  /** Copy / move / remove icons. Default true. */
+  showManagementActions?: boolean;
+  /** Extra badge (e.g. regression case count) per task id */
+  countByTaskId?: Record<string, number>;
 };
 
 type TaskTreeNodeRowProps = Omit<TaskTreeListProps, 'nodes'> & {
@@ -49,6 +53,8 @@ function TaskTreeNodeRow({
   onCopy,
   onMove,
   onRemove,
+  showManagementActions = true,
+  countByTaskId,
   reduceMotion,
 }: TaskTreeNodeRowProps) {
   const { task, children } = node;
@@ -56,6 +62,7 @@ function TaskTreeNodeRow({
   const hasChildren = children.length > 0;
   const expanded = hasChildren && expandedIds.includes(task.id);
   const rowBusy = busyKey === task.filePath || busyKey === task.id;
+  const extraCount = countByTaskId?.[task.id];
 
   return (
     <motion.div
@@ -100,7 +107,11 @@ function TaskTreeNodeRow({
               <Text size="sm" fw={600} truncate>
                 {getTaskShortLabel(task)}
               </Text>
-              {hasChildren ? (
+              {extraCount !== undefined ? (
+                <Badge size="xs" variant="light">
+                  {extraCount}
+                </Badge>
+              ) : hasChildren ? (
                 <Badge size="xs" variant="light">
                   {children.length}
                 </Badge>
@@ -115,48 +126,52 @@ function TaskTreeNodeRow({
           <Text size="xs" c="dimmed">
             {dayjs(task.openedAt).format('DD.MM.YYYY HH:mm')}
           </Text>
-          <Tooltip label="Копировать задачу">
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              aria-label="Копировать задачу"
-              loading={rowBusy}
-              onClick={(event) => {
-                event.stopPropagation();
-                onCopy(task);
-              }}
-            >
-              <IconCopy size={16} />
-            </ActionIcon>
-          </Tooltip>
-          <Tooltip label="Переместить в другую задачу">
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              aria-label="Переместить задачу"
-              disabled={rowBusy}
-              onClick={(event) => {
-                event.stopPropagation();
-                onMove(task);
-              }}
-            >
-              <IconArrowsMove size={16} />
-            </ActionIcon>
-          </Tooltip>
-          <Tooltip label="Убрать из списка">
-            <ActionIcon
-              variant="subtle"
-              color="red"
-              aria-label="Убрать из списка"
-              disabled={rowBusy}
-              onClick={(event) => {
-                event.stopPropagation();
-                void onRemove(task.filePath, task.name);
-              }}
-            >
-              <IconTrash size={16} />
-            </ActionIcon>
-          </Tooltip>
+          {showManagementActions ? (
+            <>
+              <Tooltip label="Копировать задачу">
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  aria-label="Копировать задачу"
+                  loading={rowBusy}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onCopy?.(task);
+                  }}
+                >
+                  <IconCopy size={16} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Переместить в другую задачу">
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  aria-label="Переместить задачу"
+                  disabled={rowBusy}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onMove?.(task);
+                  }}
+                >
+                  <IconArrowsMove size={16} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Убрать из списка">
+                <ActionIcon
+                  variant="subtle"
+                  color="red"
+                  aria-label="Убрать из списка"
+                  disabled={rowBusy}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRemove?.(task.filePath, task.name);
+                  }}
+                >
+                  <IconTrash size={16} />
+                </ActionIcon>
+              </Tooltip>
+            </>
+          ) : null}
         </Group>
       </Group>
 
@@ -173,6 +188,8 @@ function TaskTreeNodeRow({
               onCopy={onCopy}
               onMove={onMove}
               onRemove={onRemove}
+              showManagementActions={showManagementActions}
+              countByTaskId={countByTaskId}
             />
           </div>
         </Collapse>
@@ -191,6 +208,8 @@ export function TaskTreeList({
   onCopy,
   onMove,
   onRemove,
+  showManagementActions = true,
+  countByTaskId,
 }: TaskTreeListProps) {
   const reduceMotion = useReducedMotion();
 
@@ -209,6 +228,8 @@ export function TaskTreeList({
           onCopy={onCopy}
           onMove={onMove}
           onRemove={onRemove}
+          showManagementActions={showManagementActions}
+          countByTaskId={countByTaskId}
         />
       ))}
     </AnimatePresence>

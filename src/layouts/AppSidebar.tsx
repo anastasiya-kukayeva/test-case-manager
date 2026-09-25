@@ -5,6 +5,7 @@ import {
   IconChecklist,
   IconHome2,
   IconListDetails,
+  IconRepeat,
   IconSettings,
 } from '@tabler/icons-react';
 import { NavLink, useLocation } from 'react-router-dom';
@@ -15,6 +16,9 @@ export function AppSidebar() {
 
   const isOnTasks =
     location.pathname === AppRoutes.tasks || location.pathname === AppRoutes.taskCurrent;
+  const isOnRegression =
+    location.pathname === AppRoutes.regression ||
+    location.pathname.startsWith('/regression/');
 
   return (
     <Stack gap="xs" p="md" style={{ height: '100%', overflow: 'auto' }}>
@@ -56,6 +60,15 @@ export function AppSidebar() {
         label="Тест-кейсы"
         active={location.pathname === AppRoutes.allTestCases}
         leftSection={<IconListDetails size={18} stroke={1.5} />}
+        variant="filled"
+      />
+
+      <MantineNavLink
+        component={NavLink}
+        to={AppRoutes.regression}
+        label="Регресс"
+        active={isOnRegression}
+        leftSection={<IconRepeat size={18} stroke={1.5} />}
         variant="filled"
       />
 

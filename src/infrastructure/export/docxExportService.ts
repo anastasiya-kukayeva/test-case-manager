@@ -12,6 +12,7 @@ import {
   PageBreak,
   PageNumber,
   Paragraph,
+  SimpleField,
   Tab,
   TabStopPosition,
   TabStopType,
@@ -72,10 +73,20 @@ type TocEntry = {
   title: string;
   /** Absolute page number in the generated document */
   page: number;
+  /** Resolve the page via Word PAGEREF when the section is not on a fixed page */
+  pageRef?: boolean;
 };
 
 /** Page 1 = title, page 2 = TOC, body starts at page 3 (sections flow continuously). */
 const BODY_START_PAGE = 3;
+
+function estimateRisksTocPage(testCaseCount: number, hasPrecedingBody: boolean): number {
+  if (!hasPrecedingBody) {
+    return BODY_START_PAGE;
+  }
+  const bodyPages = Math.max(1, testCaseCount);
+  return BODY_START_PAGE + bodyPages;
+}
 
 function run(text: string, options: IRunOptions = {}): TextRun {
   return new TextRun({
@@ -99,6 +110,31 @@ function titleParagraph(text: string): Paragraph {
     spacing: { before: 4200, after: 300 },
     children: [run(text, { bold: true, size: SIZE_TITLE })],
   });
+}
+
+function titlePageBlocks(taskName: string, releaseNumber: string): FileChild[] {
+  const title = `Методика испытаний в рамках задачи: ${taskName}`;
+  const blocks: FileChild[] = [titleParagraph(title)];
+  const release = releaseNumber.trim();
+  if (!release) {
+    return blocks;
+  }
+
+  blocks.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 0, after: 0 },
+      children: [run('')],
+    }),
+  );
+  blocks.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 0, after: 200 },
+      children: [run(release, { bold: true, size: SIZE_TITLE })],
+    }),
+  );
+  return blocks;
 }
 
 function sectionHeading(text: string, bookmarkId: string): Paragraph {
@@ -154,7 +190,9 @@ function tocParagraphs(entries: TocEntry[]): FileChild[] {
             font: FONT,
             size: SIZE_TOC,
           }),
-          run(String(entry.page), { size: SIZE_TOC, bold: true }),
+          entry.pageRef
+            ? new SimpleField(` PAGEREF ${entry.id} \\h `, String(entry.page))
+            : run(String(entry.page), { size: SIZE_TOC, bold: true }),
         ],
       }),
     );
@@ -437,7 +475,7 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
   const children: FileChild[] = [];
 
   const taskName = meta.name?.trim() || 'Без названия';
-  children.push(titleParagraph(taskName));
+  children.push(...titlePageBlocks(taskName, meta.releaseNumber ?? ''));
   children.push(pageBreak());
 
   const sectionPlan: Array<{ id: string; title: string; kind: string }> = [];
@@ -461,12 +499,22 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
     sectionPlan.push({ id: 'toc-scenario', title: 'Сценарий испытаний', kind: 'scenario' });
   }
 
+  const hasRisks = hasRichText(meta.risksAndLimitations);
+
   // Body flows on one continuous sequence starting at page 3.
   const tocEntries: TocEntry[] = sectionPlan.map((section) => ({
     id: section.id,
     title: section.title,
     page: BODY_START_PAGE,
   }));
+  if (hasRisks) {
+    tocEntries.push({
+      id: 'toc-risks',
+      title: 'Риски и ограничения',
+      page: estimateRisksTocPage(document.testCases.length, sectionPlan.length > 0),
+      pageRef: true,
+    });
+  }
 
   if (tocEntries.length > 0) {
     children.push(...tocParagraphs(tocEntries));
@@ -572,10 +620,21 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
     }
   }
 
+  if (hasRisks) {
+    if (sectionPlan.length > 0) {
+      children.push(pageBreak());
+    }
+    children.push(sectionHeading('Риски и ограничения', 'toc-risks'));
+    children.push(...fromRichText(meta.risksAndLimitations));
+  }
+
   const doc = new Document({
     creator: 'Test Case Manager',
     title: taskName,
     description: taskName,
+    features: {
+      updateFields: true,
+    },
     styles: {
       default: {
         document: {
@@ -653,14 +712,17 @@ export async function buildTestCaseDocx(context: {
         id: 'temp',
         name: context.taskName,
         shortName: '',
+        releaseNumber: '',
         description: '',
         author: '',
         testObject: '',
         testObjectLinks: [],
         application: '',
+        module: '',
         testGoal: { html: '', plainText: '' },
         generalProvisions: '',
         functionalRequirements: { html: '', plainText: '' },
+        risksAndLimitations: { html: '', plainText: '' },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },

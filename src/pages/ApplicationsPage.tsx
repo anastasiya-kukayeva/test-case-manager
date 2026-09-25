@@ -8,12 +8,11 @@ import {
   Loader,
   Stack,
   Text,
-  TextInput,
   Title,
   Tooltip,
   UnstyledButton,
 } from '@mantine/core';
-import { IconAlertCircle, IconApps, IconPlus, IconRefresh, IconTrash } from '@tabler/icons-react';
+import { IconAlertCircle, IconApps, IconPlus, IconRefresh } from '@tabler/icons-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -37,8 +36,6 @@ export function ApplicationsPage() {
   const applications = useDirectoryStore((state) => state.applications);
   const isDirectoryLoaded = useDirectoryStore((state) => state.isLoaded);
   const loadDirectory = useDirectoryStore((state) => state.load);
-  const addApplication = useDirectoryStore((state) => state.addApplication);
-  const removeApplication = useDirectoryStore((state) => state.removeApplication);
   const current = useProjectStore((state) => state.current);
 
   const [groups, setGroups] = useState<ApplicationGroup[]>([]);
@@ -47,9 +44,6 @@ export function ApplicationsPage() {
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [createOpened, setCreateOpened] = useState(false);
   const [createApplication, setCreateApplication] = useState('');
-  const [draftName, setDraftName] = useState('');
-  const [busy, setBusy] = useState(false);
-
   const reload = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -77,21 +71,6 @@ export function ApplicationsPage() {
     current?.document.meta.id,
     current?.document.meta.application,
   ]);
-
-  const handleAddApplication = async () => {
-    setBusy(true);
-    const created = await addApplication(draftName);
-    setBusy(false);
-    if (created) {
-      setDraftName('');
-    }
-  };
-
-  const handleRemoveApplication = async (applicationId: string) => {
-    setBusy(true);
-    await removeApplication(applicationId);
-    setBusy(false);
-  };
 
   const openTask = async (task: ApplicationTaskItem) => {
     setOpeningId(task.taskId);
@@ -133,7 +112,7 @@ export function ApplicationsPage() {
           <div>
             <Title order={2}>Приложения</Title>
             <Text c="dimmed" mt="xs">
-              Добавляйте приложения и раскрывайте их, чтобы увидеть связанные задачи.
+              Задачи, сгруппированные по приложениям из справочника.
             </Text>
           </div>
           <Tooltip label="Обновить">
@@ -141,35 +120,6 @@ export function ApplicationsPage() {
               <IconRefresh size={16} />
             </ActionIcon>
           </Tooltip>
-        </Group>
-      </FadeIn>
-
-      <FadeIn delay={0.04}>
-        <Group align="flex-end" wrap="nowrap" gap="xs">
-          <TextInput
-            label="Новое приложение"
-            placeholder="Например: CRM Portal"
-            value={draftName}
-            onChange={(event) => {
-              const value = event.currentTarget?.value ?? event.target?.value ?? '';
-              setDraftName(value);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                void handleAddApplication();
-              }
-            }}
-            style={{ flex: 1 }}
-          />
-          <Button
-            leftSection={<IconPlus size={16} />}
-            loading={busy}
-            onClick={() => void handleAddApplication()}
-            disabled={!draftName.trim()}
-          >
-            Добавить
-          </Button>
         </Group>
       </FadeIn>
 
@@ -190,7 +140,7 @@ export function ApplicationsPage() {
 
       {!loading && groups.length === 0 ? (
         <Alert color="gray" title="Нет приложений" icon={<IconApps size={16} />}>
-          Добавьте приложение выше, затем укажите его в карточке задачи.
+          Добавьте приложение в разделе «Справочник», затем выберите его в карточке задачи.
         </Alert>
       ) : null}
 
@@ -202,32 +152,14 @@ export function ApplicationsPage() {
                 key={group.applicationId ?? `name:${group.applicationName}`}
                 value={group.applicationId ?? `name:${group.applicationName}`}
               >
-                <Group wrap="nowrap" gap={4} align="stretch">
-                  <Accordion.Control style={{ flex: 1 }}>
-                    <Group justify="space-between" pr="md" wrap="nowrap">
-                      <Text fw={700} lineClamp={1}>
-                        {group.applicationName}
-                      </Text>
-                      <Badge variant="light">{group.tasks.length}</Badge>
-                    </Group>
-                  </Accordion.Control>
-                  {group.applicationId ? (
-                    <Tooltip label="Удалить приложение">
-                      <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        size="lg"
-                        mt={4}
-                        mr={8}
-                        disabled={busy}
-                        aria-label={`Удалить приложение ${group.applicationName}`}
-                        onClick={() => void handleRemoveApplication(group.applicationId!)}
-                      >
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  ) : null}
-                </Group>
+                <Accordion.Control>
+                  <Group justify="space-between" pr="md" wrap="nowrap">
+                    <Text fw={700} lineClamp={1}>
+                      {group.applicationName}
+                    </Text>
+                    <Badge variant="light">{group.tasks.length}</Badge>
+                  </Group>
+                </Accordion.Control>
                 <Accordion.Panel>
                   <Stack gap="sm">
                     <Button
