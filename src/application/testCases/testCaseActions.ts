@@ -116,6 +116,7 @@ export const testCaseActions = {
         verificationResult: structuredClone(existing.verificationResult),
         verificationAttachments: structuredClone(existing.verificationAttachments),
         testOutcome: existing.testOutcome,
+        includeInReport: existing.includeInReport !== false,
         includeInRegression: existing.includeInRegression,
         includeInTaskRegression: existing.includeInTaskRegression,
       });
@@ -162,6 +163,26 @@ export const testCaseActions = {
       return true;
     } catch (error) {
       notifyError(error, { title: 'Не удалось удалить' });
+      return false;
+    }
+  },
+
+  setIncludeInReport(id: string, includeInReport: boolean): boolean {
+    try {
+      const current = requireOpenProject();
+      const existing = current.document.testCases.find((item) => item.id === id);
+      if (!existing) {
+        throw new AppError('NOT_FOUND', 'Тест-кейс не найден');
+      }
+      if ((existing.includeInReport !== false) === includeInReport) {
+        return true;
+      }
+
+      useProjectStore.getState().updateTestCase(id, { includeInReport });
+      void projectActions.saveIfDirty({ silent: true });
+      return true;
+    } catch (error) {
+      notifyError(error, { title: 'Не удалось изменить отметку отчёта' });
       return false;
     }
   },

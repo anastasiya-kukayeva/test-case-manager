@@ -12,9 +12,6 @@ export const REGRESSION_MODE_LABELS: Record<RegressionMode, string> = {
   task: 'Регресс задачи',
 };
 
-const UNASSIGNED_APPLICATION = 'Без приложения';
-const UNASSIGNED_MODULE = 'Без модуля';
-
 export function isRegressionMode(value: string | undefined): value is RegressionMode {
   return value === 'suite' || value === 'task';
 }
@@ -23,24 +20,32 @@ export function matchesRegressionMode(testCase: TestCase, mode: RegressionMode):
   return mode === 'task' ? Boolean(testCase.includeInTaskRegression) : Boolean(testCase.includeInRegression);
 }
 
-export type RegressionTaskItem = {
+export const UNASSIGNED_MODULE = 'Без модуля';
+
+export type RegressionCaseItem = {
+  id: string;
+  number: string;
+  title: string;
+  goal: TestCase['goal'];
+  createdAt: string;
+  updatedAt: string;
+  testOutcome: TestCase['testOutcome'];
+  includeInReport: boolean;
   taskId: string;
   taskName: string;
   taskShortLabel: string;
   taskFilePath: string | null;
-  application: string;
   module: string;
-  caseCount: number;
 };
 
-export type RegressionModuleGroup = {
+export type RegressionModuleCases = {
   moduleName: string;
-  tasks: RegressionTaskItem[];
+  cases: RegressionCaseItem[];
 };
 
-export type RegressionApplicationGroup = {
-  applicationName: string;
-  modules: RegressionModuleGroup[];
+export type RegressionCasesByModule = {
+  modules: RegressionModuleCases[];
+  unassigned: RegressionCaseItem[];
 };
 
 type LoadedTask = {
@@ -118,52 +123,48 @@ async function loadTasks(): Promise<LoadedTask[]> {
   return tasks;
 }
 
-export async function loadRegressionGroups(mode: RegressionMode): Promise<RegressionApplicationGroup[]> {
+export async function loadRegressionCasesByModule(mode: RegressionMode): Promise<RegressionCasesByModule> {
   const directory = useDirectoryStore.getState();
-  const items: RegressionTaskItem[] = [];
+  const cases: RegressionCaseItem[] = [];
 
   for (const task of await loadTasks()) {
-    const caseCount = task.testCases.filter((item) => matchesRegressionMode(item, mode)).length;
-    if (caseCount === 0) {
-      continue;
+    const moduleName = task.meta.module?.trim() || UNASSIGNED_MODULE;
+    for (const testCase of task.testCases) {
+      if (!matchesRegressionMode(testCase, mode)) {
+        continue;
+      }
+      cases.push({
+        id: testCase.id,
+        number: testCase.number,
+        title: testCase.title,
+        goal: testCase.goal,
+        createdAt: testCase.createdAt,
+        updatedAt: testCase.updatedAt,
+        testOutcome: testCase.testOutcome,
+        includeInReport: testCase.includeInReport !== false,
+        taskId: task.meta.id,
+        taskName: task.meta.name,
+        taskShortLabel: getTaskShortLabel(task.meta),
+        taskFilePath: task.filePath,
+        module: moduleName,
+      });
     }
-    items.push({
-      taskId: task.meta.id,
-      taskName: task.meta.name,
-      taskShortLabel: getTaskShortLabel(task.meta),
-      taskFilePath: task.filePath,
-      application: task.meta.application?.trim() || UNASSIGNED_APPLICATION,
-      module: task.meta.module?.trim() || UNASSIGNED_MODULE,
-      caseCount,
-    });
   }
 
-  const applicationNames = orderedNames(
-    directory.applications.map((item) => item.name),
-    items.map((item) => item.application),
+  const named = cases.filter((item) => item.module !== UNASSIGNED_MODULE);
+  const unassigned = cases.filter((item) => item.module === UNASSIGNED_MODULE);
+  const moduleNames = orderedNames(
+    directory.modules.map((item) => item.name),
+    named.map((item) => item.module),
   );
-  const unassignedApp = applicationNames.filter((name) => name === UNASSIGNED_APPLICATION);
-  const namedApps = applicationNames.filter((name) => name !== UNASSIGNED_APPLICATION);
 
-  return [...namedApps, ...unassignedApp].map((applicationName) => {
-    const appTasks = items.filter(
-      (item) => item.application.toLocaleLowerCase('ru') === applicationName.toLocaleLowerCase('ru'),
-    );
-    const moduleNames = orderedNames(
-      directory.modules.map((item) => item.name),
-      appTasks.map((item) => item.module),
-    );
-    const unassignedModule = moduleNames.filter((name) => name === UNASSIGNED_MODULE);
-    const namedModules = moduleNames.filter((name) => name !== UNASSIGNED_MODULE);
-
-    return {
-      applicationName,
-      modules: [...namedModules, ...unassignedModule].map((moduleName) => ({
-        moduleName,
-        tasks: appTasks.filter(
-          (item) => item.module.toLocaleLowerCase('ru') === moduleName.toLocaleLowerCase('ru'),
-        ),
-      })),
-    };
-  });
+  return {
+    modules: moduleNames.map((moduleName) => ({
+      moduleName,
+      cases: named.filter(
+        (item) => item.module.toLocaleLowerCase('ru') === moduleName.toLocaleLowerCase('ru'),
+      ),
+    })),
+    unassigned,
+  };
 }

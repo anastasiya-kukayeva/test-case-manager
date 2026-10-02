@@ -1,6 +1,6 @@
 {
   "name": "test-case-manager",
-  "version": "1.0.9",
+  "version": "1.0.11",
   "description": "Desktop Test Case Manager for Windows",
   "main": "dist-electron/main.js",
   "private": true,
@@ -69,6 +69,7 @@
     "react-hook-form": "^7.58.1",
     "react-photo-view": "^1.2.7",
     "react-router-dom": "^7.6.3",
+    "typograf": "^7.8.0",
     "zod": "^3.25.67",
     "zustand": "^5.0.6"
   },

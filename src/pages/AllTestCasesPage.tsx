@@ -33,7 +33,6 @@ import { nextTestCaseNumber } from '@/application/testCases/renumberTestCases';
 import { testCaseActions } from '@/application/testCases/testCaseActions';
 import { projectActions } from '@/application/project/projectActions';
 import { DuplicateTestCaseModal } from '@/components/testCases/DuplicateTestCaseModal';
-import { ImportWordTestCasesButton } from '@/components/testCases/ImportWordTestCasesButton';
 import { TestCasesListTable } from '@/components/testCases/TestCasesListTable';
 import { FadeIn } from '@/components/ui/FadeIn';
 import type { TestResultOutcome } from '@/domain/types';
@@ -209,6 +208,29 @@ export function AllTestCasesPage() {
     );
   };
 
+  const changeIncludeInReport = async (row: CatalogTestCaseRow, includeInReport: boolean) => {
+    const ok = await ensureTaskOpen(row);
+    if (!ok) {
+      return;
+    }
+
+    const updated = testCaseActions.setIncludeInReport(row.id, includeInReport);
+    if (!updated) {
+      return;
+    }
+
+    setGroups((prev) =>
+      prev.map((group) => ({
+        ...group,
+        testCases: group.testCases.map((item) =>
+          item.id === row.id
+            ? { ...item, includeInReport, updatedAt: new Date().toISOString() }
+            : item,
+        ),
+      })),
+    );
+  };
+
   const query = searchQuery.trim();
 
   const visibleGroups = useMemo(() => {
@@ -237,11 +259,6 @@ export function AllTestCasesPage() {
             </Text>
           </div>
           <Group gap="xs">
-            <ImportWordTestCasesButton
-              onImported={() => {
-                void reload();
-              }}
-            />
             <Tooltip label="Обновить список">
               <ActionIcon variant="default" onClick={() => void reload()} loading={loading}>
                 <IconRefresh size={16} />
@@ -386,6 +403,12 @@ export function AllTestCasesPage() {
                             const full = findCase(group, row.id);
                             if (full) {
                               void changeOutcome(full, outcome);
+                            }
+                          }}
+                          onIncludeInReportChange={(row, includeInReport) => {
+                            const full = findCase(group, row.id);
+                            if (full) {
+                              void changeIncludeInReport(full, includeInReport);
                             }
                           }}
                           onReorder={

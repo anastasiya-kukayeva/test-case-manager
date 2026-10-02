@@ -83,6 +83,22 @@ export const projectFileService = {
     }
   },
 
+  async chooseSavePath(
+    defaultPath?: string,
+    title = 'Сохранить задачу как',
+  ): Promise<string | null> {
+    const api = requireFileApi();
+    const filePath = await api.dialog.saveFile({
+      title,
+      defaultPath,
+      filters: TASK_FILTERS,
+    });
+    if (!filePath) {
+      return null;
+    }
+    return ensureTaskExtension(filePath);
+  },
+
   async saveWithDialog(
     document: TaskDocument,
     defaultPath?: string,

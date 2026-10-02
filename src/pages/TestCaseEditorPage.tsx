@@ -8,7 +8,7 @@ import { formValuesToTestCasePatch } from '@/application/testCases/testCaseFormM
 import { TestCaseEditorForm } from '@/components/editor/TestCaseEditorForm';
 import type { TestCaseEditorFormValues } from '@/domain/schemas/testCaseSchema';
 import { isRegressionMode, type RegressionMode } from '@/application/regression/loadRegressionGroups';
-import { AppRoutes } from '@/routes/paths';
+import { AppRoutes, regressionBrowsePath } from '@/routes/paths';
 import { useProjectStore } from '@/stores/useProjectStore';
 
 export function TestCaseEditorPage() {
@@ -18,8 +18,7 @@ export function TestCaseEditorPage() {
   const navState = location.state as { from?: string; mode?: string } | null;
   const fromRegression = navState?.from === 'regression';
   const regressionMode: RegressionMode = isRegressionMode(navState?.mode) ? navState.mode : 'suite';
-  const listRoute = fromRegression ? AppRoutes.regressionCases : AppRoutes.testCases;
-  const listState = fromRegression ? { mode: regressionMode } : undefined;
+  const listRoute = fromRegression ? regressionBrowsePath(regressionMode) : AppRoutes.testCases;
   const current = useProjectStore((state) => state.current);
   const updateTestCase = useProjectStore((state) => state.updateTestCase);
   const flushRef = useRef<(() => void) | null>(null);
@@ -51,11 +50,11 @@ export function TestCaseEditorPage() {
     try {
       flushRef.current?.();
       await projectActions.saveIfDirty({ silent: true, allowSaveAs: true });
-      void navigate(listRoute, { state: listState });
+      void navigate(listRoute);
     } finally {
       leavingRef.current = false;
     }
-  }, [navigate, listRoute, listState]);
+  }, [navigate, listRoute]);
 
   // Flush + save when leaving via sidebar / route change (not only the Back button).
   useEffect(() => {
@@ -86,7 +85,7 @@ export function TestCaseEditorPage() {
         <Button
           w="fit-content"
           leftSection={<IconArrowLeft size={16} />}
-          onClick={() => void navigate(listRoute, { state: listState })}
+          onClick={() => void navigate(listRoute)}
         >
           {fromRegression ? 'К списку регресса' : 'К списку тест-кейсов'}
         </Button>
@@ -118,7 +117,7 @@ export function TestCaseEditorPage() {
             try {
               persist(values, true);
               await projectActions.saveIfDirty({ silent: true, allowSaveAs: true });
-              void navigate(listRoute, { state: listState });
+              void navigate(listRoute);
             } finally {
               leavingRef.current = false;
             }

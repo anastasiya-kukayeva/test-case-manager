@@ -6,7 +6,6 @@ import {
   ScrollArea,
   Stack,
   Text,
-  Textarea,
   TextInput,
 } from '@mantine/core';
 import { useEffect, useState, type ChangeEvent } from 'react';
@@ -14,6 +13,7 @@ import { projectActions } from '@/application/project/projectActions';
 import { DirectoryApplicationSelect } from '@/components/directory/DirectoryApplicationSelect';
 import { DirectoryModuleSelect } from '@/components/directory/DirectoryModuleSelect';
 import { FormRichTextEditor } from '@/components/editor/FormRichTextEditor';
+import { ProseTextarea } from '@/components/editor/ProseTextarea';
 import { createEmptyRichText } from '@/domain/factories/createEntities';
 import type { RichTextContent } from '@/domain/types';
 
@@ -132,7 +132,7 @@ export function CreateProjectModal({
 
         <ScrollArea.Autosize mah="calc(90vh - 180px)" type="auto" offsetScrollbars>
           <Stack gap="md" pr="xs">
-            <Textarea
+            <ProseTextarea
               label="Название задачи"
               description={`Текстовое поле, до ${TASK_NAME_MAX_LENGTH} символов`}
               placeholder="Например: Методика испытаний в рамках задачи «Релиз 2. …»"
@@ -176,7 +176,7 @@ export function CreateProjectModal({
               />
             </SimpleGrid>
 
-            <Textarea
+            <ProseTextarea
               label="Объект испытаний"
               description="Можно вставлять ссылки (URL) и несколько строк"
               placeholder="https://… или описание объекта"
@@ -205,7 +205,7 @@ export function CreateProjectModal({
               />
             </div>
 
-            <Textarea
+            <ProseTextarea
               label="Общие положения"
               placeholder="Общие условия и вводная информация"
               value={form.generalProvisions}

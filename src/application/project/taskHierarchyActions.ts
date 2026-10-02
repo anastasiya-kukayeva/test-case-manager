@@ -103,23 +103,35 @@ async function persistRecent(next: RecentProject[]): Promise<void> {
   }
 }
 
-function suggestedCopyPath(filePath: string | null, label: string): string | undefined {
-  const safeLabel = label
-    .replace(/[<>:"/\\|?*]/g, '_')
+function sanitizeTaskFileLabel(label: string): string {
+  return label
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 72);
+    .slice(0, 80);
+}
 
-  if (!filePath) {
-    const defaultDir = useAppStore.getState().settings.storage.defaultProjectsDirectory;
-    return defaultDir ? `${defaultDir}\\${safeLabel || 'task'} копия.${TC_TASK_FILE_EXTENSION}` : undefined;
-  }
-
+/** Name typed in the save dialog, without the task file extension. */
+export function taskTitleFromFilePath(filePath: string): string {
   const lastSlash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
-  const dir = lastSlash >= 0 ? filePath.slice(0, lastSlash + 1) : '';
-  const filename = lastSlash >= 0 ? filePath.slice(lastSlash + 1) : filePath;
-  const withoutExt = filename.replace(/\.(tctask|tcproj)$/i, '');
-  return `${dir}${withoutExt} копия.${TC_TASK_FILE_EXTENSION}`;
+  const filename = (lastSlash >= 0 ? filePath.slice(lastSlash + 1) : filePath).trim();
+  const withoutExt = filename.replace(/\.(tctask|tcproj)$/i, '').trim();
+  return withoutExt || 'Новая задача';
+}
+
+function suggestedCopyPath(filePath: string | null, label: string): string | undefined {
+  const safeLabel = sanitizeTaskFileLabel(label) || 'task';
+  let dir = '';
+  if (filePath) {
+    const lastSlash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+    dir = lastSlash >= 0 ? filePath.slice(0, lastSlash + 1) : '';
+  } else {
+    const defaultDir = useAppStore.getState().settings.storage.defaultProjectsDirectory;
+    if (defaultDir) {
+      dir = /[/\\]$/.test(defaultDir) ? defaultDir : `${defaultDir}\\`;
+    }
+  }
+  return `${dir}${safeLabel} копия.${TC_TASK_FILE_EXTENSION}`;
 }
 
 async function readSourceDocument(task: TaskHierarchyTarget): Promise<TaskDocument> {
@@ -145,21 +157,32 @@ export const taskHierarchyActions = {
       }
 
       const source = await readSourceDocument(task);
-      const clone = cloneTaskDocument(source);
-      const label = clone.meta.shortName.trim() || clone.meta.name.trim() || 'task';
-      const saved = await projectFileService.saveWithDialog(
-        clone,
-        suggestedCopyPath(task.filePath, label),
+      const clone = cloneTaskDocument(source, { nameSuffix: '' });
+      const manualName = source.meta.shortName.trim() || source.meta.name.trim() || 'task';
+      const targetPath = await projectFileService.chooseSavePath(
+        suggestedCopyPath(task.filePath, manualName),
+        'Сохранить копию задачи',
       );
-      if (!saved) {
+      if (!targetPath) {
         return false;
       }
 
+      const title = taskTitleFromFilePath(targetPath);
+      const document: TaskDocument = {
+        ...clone,
+        meta: {
+          ...clone.meta,
+          name: title.slice(0, 2000),
+          shortName: title.slice(0, 80),
+        },
+      };
+      await projectFileService.saveToPath(targetPath, document);
+
       const recent = useAppStore.getState().recentProjects;
-      const entry = toRecent(saved.document, saved.filePath);
-      const next = [entry, ...recent.filter((item) => item.filePath !== saved.filePath)].slice(0, 10);
+      const entry = toRecent(document, targetPath);
+      const next = [entry, ...recent.filter((item) => item.filePath !== targetPath)].slice(0, 10);
       await persistRecent(next);
-      notifySuccess(`Создана копия «${clone.meta.name}»`);
+      notifySuccess(`Создана копия «${title}»`);
       return true;
     } catch (error) {
       notifyError(error, { title: 'Не удалось скопировать задачу' });

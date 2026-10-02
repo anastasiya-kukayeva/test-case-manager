@@ -1,5 +1,11 @@
 import { nanoid } from 'nanoid';
-import type { ImageAttachment, RichTextContent, TestCase, TestResultOutcome } from '@/domain/types';
+import type {
+  ImageAttachment,
+  NamedLink,
+  RichTextContent,
+  TestCase,
+  TestResultOutcome,
+} from '@/domain/types';
 
 const FIELD_MARKER = {
   goal: '[[[FIELD:goal]]]',
@@ -37,7 +43,7 @@ const LABEL_REPLACERS: Array<{ key: FieldKey; pattern: RegExp }> = [
   },
   {
     key: 'outcome',
-    pattern: /<strong>\s*Результат\s+тест(?:а|ирования)\s*:?\s*<\/strong>/gi,
+    pattern: /<strong>\s*Результат\s+тест(?:а|ирования)\s*:?\s*([\s\S]*?)<\/strong>/gi,
   },
 ];
 
@@ -130,19 +136,13 @@ function titleFromGoal(goal: RichTextContent, sourceNumber: string): string {
 function insertFieldMarkers(html: string): string {
   let next = html;
   for (const { key, pattern } of LABEL_REPLACERS) {
+    if (key === 'outcome') {
+      next = next.replace(pattern, (_full, value: string) => `${FIELD_MARKER.outcome}${value ?? ''}`);
+      continue;
+    }
     next = next.replace(pattern, FIELD_MARKER[key]);
   }
   return next;
-}
-
-function sliceScenarioHtml(fullHtml: string): string {
-  const matches = [...fullHtml.matchAll(/Сценарий\s+испытаний/gi)];
-  if (matches.length === 0) {
-    throw new Error('В документе не найден раздел «Сценарий испытаний»');
-  }
-  const last = matches[matches.length - 1];
-  const start = last.index ?? 0;
-  return fullHtml.slice(start);
 }
 
 function splitTestChunks(scenarioHtml: string): Array<{ sourceNumber: string; bodyHtml: string }> {
@@ -220,14 +220,243 @@ function parseTestBody(sourceNumber: string, bodyHtml: string): ParsedPmiTestCas
   };
 }
 
+export type ParsedPmiTaskFields = {
+  name?: string;
+  releaseNumber?: string;
+  testObject?: string;
+  testObjectLinks?: NamedLink[];
+  testGoal?: RichTextContent;
+  generalProvisions?: string;
+  functionalRequirements?: RichTextContent;
+  risksAndLimitations?: RichTextContent;
+};
+
+export type ParsedPmiDocument = {
+  task: ParsedPmiTaskFields;
+  testCases: ParsedPmiTestCase[];
+};
+
+const TASK_SECTIONS = [
+  { key: 'object', title: 'Объект испытаний' },
+  { key: 'goal', title: 'Цель испытаний' },
+  { key: 'general', title: 'Общие положения' },
+  { key: 'functional', title: 'Требования к функциональности' },
+  { key: 'scenario', title: 'Сценарий испытаний' },
+  { key: 'risks', title: 'Риски и ограничения' },
+] as const;
+
+type TaskSectionKey = (typeof TASK_SECTIONS)[number]['key'];
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+}
+
+function findLastHeading(html: string, title: string): { index: number; end: number } | null {
+  const titlePattern = escapeRegExp(title);
+  const patterns = [
+    `<h[1-3][^>]*>\\s*(?:<[^>]+>\\s*)*${titlePattern}\\s*(?:</[^>]+>\\s*)*</h[1-3]>`,
+    `<p[^>]*>\\s*<strong>\\s*${titlePattern}\\s*</strong>\\s*</p>`,
+  ];
+  let last: { index: number; end: number } | null = null;
+  for (const source of patterns) {
+    const re = new RegExp(source, 'gi');
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(html))) {
+      if (!last || match.index >= last.index) {
+        last = { index: match.index, end: match.index + match[0].length };
+      }
+    }
+  }
+  return last;
+}
+
+function splitTaskSections(html: string): {
+  sections: Map<TaskSectionKey, string>;
+  firstIndex: number;
+} {
+  const found = TASK_SECTIONS.flatMap((section) => {
+    const hit = findLastHeading(html, section.title);
+    return hit ? [{ key: section.key, ...hit }] : [];
+  }).sort((left, right) => left.index - right.index);
+
+  const sections = new Map<TaskSectionKey, string>();
+  for (let index = 0; index < found.length; index += 1) {
+    const current = found[index];
+    const next = found[index + 1];
+    sections.set(current.key, html.slice(current.end, next ? next.index : html.length));
+  }
+  return { sections, firstIndex: found[0]?.index ?? -1 };
+}
+
+function pullPlainLinks(text: string): { text: string; links: NamedLink[] } {
+  const kept: string[] = [];
+  const links: NamedLink[] = [];
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim();
+    if (!line) {
+      kept.push('');
+      continue;
+    }
+    const labeled =
+      /^(.*?):\s+((?:https?:\/\/|mailto:|file:|\\\\|[A-Za-z]:\\).+)$/i.exec(line);
+    if (labeled) {
+      const url = labeled[2].trim();
+      const title = labeled[1].trim();
+      links.push({ id: nanoid(), title: title || url, url });
+      continue;
+    }
+    const bare = /^((?:https?:\/\/|mailto:)\S+)$/i.exec(line);
+    if (bare) {
+      links.push({ id: nanoid(), title: bare[1], url: bare[1] });
+      continue;
+    }
+    kept.push(rawLine);
+  }
+  return {
+    text: kept.join('\n').replace(/\n{3,}/g, '\n\n').trim(),
+    links,
+  };
+}
+
+function extractNamedLinks(html: string): { html: string; links: NamedLink[] } {
+  const links: NamedLink[] = [];
+  const withoutAnchors = html.replace(
+    /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+    (_full, href: string, inner: string) => {
+      const title = stripTags(inner);
+      const url = decodeHtmlEntities(href).trim();
+      if (!url) {
+        return '';
+      }
+      links.push({
+        id: nanoid(),
+        title: title && title !== url ? title : url,
+        url,
+      });
+      return '';
+    },
+  );
+  return { html: withoutAnchors, links };
+}
+
+function nonemptyRich(html: string): RichTextContent | undefined {
+  const value = htmlToRichText(html);
+  if (!value.plainText && !value.html) {
+    return undefined;
+  }
+  return value;
+}
+
+function parseTitleBlock(html: string, firstSectionIndex: number): Pick<
+  ParsedPmiTaskFields,
+  'name' | 'releaseNumber'
+> {
+  const head = firstSectionIndex >= 0 ? html.slice(0, firstSectionIndex) : html;
+  const titleMatch = /Методика\s+испытаний\s+в\s+рамках\s+задачи:\s*([\s\S]*?)(?:<\/p>|<h[1-3]|$)/i.exec(
+    head,
+  );
+  const result: Pick<ParsedPmiTaskFields, 'name' | 'releaseNumber'> = {};
+  if (titleMatch) {
+    const name = stripTags(titleMatch[1]).replace(/\s+/g, ' ').trim();
+    if (name) {
+      result.name = name.slice(0, 2000);
+    }
+    const afterTitle = head.slice((titleMatch.index ?? 0) + titleMatch[0].length);
+    const paragraphs = [...afterTitle.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)];
+    for (const paragraph of paragraphs) {
+      const line = stripTags(paragraph[1]).replace(/\s+/g, ' ').trim();
+      if (!line || /^оглавление$/i.test(line) || /^\d+\.\s+/.test(line)) {
+        if (/^оглавление$/i.test(line)) {
+          break;
+        }
+        continue;
+      }
+      result.releaseNumber = line.slice(0, 80);
+      break;
+    }
+  }
+  return result;
+}
+
+function parseTaskFields(
+  html: string,
+  sections: Map<TaskSectionKey, string>,
+  firstSectionIndex: number,
+): ParsedPmiTaskFields {
+  const task: ParsedPmiTaskFields = parseTitleBlock(html, firstSectionIndex);
+
+  const objectHtml = sections.get('object');
+  if (objectHtml) {
+    const extracted = extractNamedLinks(objectHtml);
+    const plain = pullPlainLinks(stripTags(extracted.html));
+    if (plain.text) {
+      task.testObject = plain.text;
+    }
+    const links = [...extracted.links, ...plain.links];
+    if (links.length > 0) {
+      task.testObjectLinks = links;
+    }
+  }
+
+  const goal = sections.get('goal');
+  if (goal) {
+    const value = nonemptyRich(goal);
+    if (value) {
+      task.testGoal = value;
+    }
+  }
+
+  const general = sections.get('general');
+  if (general) {
+    const text = stripTags(general);
+    if (text) {
+      task.generalProvisions = text;
+    }
+  }
+
+  const functional = sections.get('functional');
+  if (functional) {
+    const value = nonemptyRich(functional);
+    if (value) {
+      task.functionalRequirements = value;
+    }
+  }
+
+  const risks = sections.get('risks');
+  if (risks) {
+    const value = nonemptyRich(risks);
+    if (value) {
+      task.risksAndLimitations = value;
+    }
+  }
+
+  return task;
+}
+
+function parseScenarioCases(scenarioHtml: string | undefined): ParsedPmiTestCase[] {
+  if (!scenarioHtml) {
+    return [];
+  }
+  const chunks = splitTestChunks(scenarioHtml);
+  return chunks.map((chunk) => parseTestBody(chunk.sourceNumber, chunk.bodyHtml));
+}
+
+/** Parse mammoth HTML of a PMI Word document into task fields and test-case drafts. */
+export function parsePmiDocumentFromHtml(fullHtml: string): ParsedPmiDocument {
+  const { sections, firstIndex } = splitTaskSections(fullHtml);
+  return {
+    task: parseTaskFields(fullHtml, sections, firstIndex),
+    testCases: parseScenarioCases(sections.get('scenario')),
+  };
+}
+
 /** Parse mammoth HTML of a PMI Word document into test-case drafts. */
 export function parsePmiTestCasesFromHtml(fullHtml: string): ParsedPmiTestCase[] {
-  const scenarioHtml = sliceScenarioHtml(fullHtml);
-  const chunks = splitTestChunks(scenarioHtml);
-  if (chunks.length === 0) {
+  const cases = parsePmiDocumentFromHtml(fullHtml).testCases;
+  if (cases.length === 0) {
     throw new Error('В разделе «Сценарий испытаний» не найдены блоки «Тест №…»');
   }
-  return chunks.map((chunk) => parseTestBody(chunk.sourceNumber, chunk.bodyHtml));
+  return cases;
 }
 
 export function parsedPmiToTestCase(parsed: ParsedPmiTestCase, number: string): TestCase {
@@ -255,6 +484,7 @@ export function parsedPmiToTestCase(parsed: ParsedPmiTestCase, number: string): 
     verificationResult: parsed.verificationResult,
     verificationAttachments: [],
     testOutcome: parsed.testOutcome,
+    includeInReport: true,
     includeInRegression: false,
     includeInTaskRegression: false,
     createdAt: now,

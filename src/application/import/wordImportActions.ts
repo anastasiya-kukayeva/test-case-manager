@@ -2,13 +2,11 @@ import { AppError } from '@/application/errors/AppError';
 import { notifyError, notifySuccess } from '@/application/errors/errorHandler';
 import { projectActions } from '@/application/project/projectActions';
 import { renumberTestCases } from '@/application/testCases/renumberTestCases';
+import type { TaskMeta } from '@/domain/types';
 import { importTestCasesFromDocxBase64 } from '@/infrastructure/import/docxImportService';
+import type { ParsedPmiTaskFields } from '@/infrastructure/import/parsePmiWordHtml';
 import { useAppStore } from '@/stores/useAppStore';
 import { useProjectStore } from '@/stores/useProjectStore';
-
-export type WordImportTaskTarget =
-  | { type: 'current' }
-  | { type: 'file'; filePath: string; label: string };
 
 function requireImportApi() {
   const api = window.electronAPI;
@@ -21,36 +19,64 @@ function requireImportApi() {
   return api;
 }
 
-async function ensureTargetTaskOpen(target: WordImportTaskTarget): Promise<boolean> {
-  if (target.type === 'current') {
-    if (!useProjectStore.getState().current) {
-      throw new AppError('NOT_FOUND', 'Открытая задача больше недоступна');
-    }
-    return true;
+function metaPatch(task: ParsedPmiTaskFields): Partial<TaskMeta> {
+  const patch: Partial<TaskMeta> = {};
+  if (task.name) {
+    patch.name = task.name;
   }
+  if (task.releaseNumber) {
+    patch.releaseNumber = task.releaseNumber;
+  }
+  if (task.testObject) {
+    patch.testObject = task.testObject;
+  }
+  if (task.testObjectLinks && task.testObjectLinks.length > 0) {
+    patch.testObjectLinks = task.testObjectLinks;
+  }
+  if (task.testGoal) {
+    patch.testGoal = task.testGoal;
+  }
+  if (task.generalProvisions) {
+    patch.generalProvisions = task.generalProvisions;
+  }
+  if (task.functionalRequirements) {
+    patch.functionalRequirements = task.functionalRequirements;
+  }
+  if (task.risksAndLimitations) {
+    patch.risksAndLimitations = task.risksAndLimitations;
+  }
+  return patch;
+}
 
-  return projectActions.openRecent(target.filePath, { preserveRecentOrder: true });
+function describeImport(fieldCount: number, caseCount: number): string {
+  const parts: string[] = [];
+  if (fieldCount > 0) {
+    parts.push('Поля задачи заполнены из файла');
+  }
+  if (caseCount > 0) {
+    parts.push(`Импортировано тест-кейсов: ${caseCount}`);
+  }
+  return parts.join('. ');
 }
 
 export const wordImportActions = {
   /**
-   * Import PMI test cases from a Word file into the chosen task
-   * (opens that task first when needed, then appends cases).
+   * Import a PMI Word file into the open task: fill card fields that the
+   * document contains, and append test cases to the task list.
    */
-  async importIntoTask(target: WordImportTaskTarget): Promise<number> {
+  async importIntoCurrentTask(): Promise<boolean> {
     try {
       const api = requireImportApi();
-
-      const opened = await ensureTargetTaskOpen(target);
-      if (!opened) {
-        return 0;
+      const current = useProjectStore.getState().current;
+      if (!current) {
+        throw new AppError('NOT_FOUND', 'Сначала откройте задачу');
       }
 
       const defaultDir =
         useAppStore.getState().settings.storage.defaultProjectsDirectory ?? undefined;
 
       const filePath = await api.dialog.openFile({
-        title: 'Импорт тест-кейсов из Word',
+        title: 'Импорт задачи из Word',
         defaultPath: defaultDir,
         filters: [
           { name: 'Документ Word', extensions: ['docx'] },
@@ -60,20 +86,19 @@ export const wordImportActions = {
       });
 
       if (!filePath) {
-        return 0;
-      }
-
-      const current = useProjectStore.getState().current;
-      if (!current) {
-        throw new AppError('NOT_FOUND', 'Задача не открыта');
+        return false;
       }
 
       const { base64 } = await api.file.readBinary(filePath);
-      const startNumber = current.document.testCases.length + 1;
-      const { testCases } = await importTestCasesFromDocxBase64(base64, startNumber);
+      const startNumber = useProjectStore.getState().current?.document.testCases.length ?? 0;
+      const imported = await importTestCasesFromDocxBase64(base64, startNumber + 1);
+      const patch = metaPatch(imported.task);
 
-      if (testCases.length === 0) {
-        throw new AppError('VALIDATION', 'В файле не найдено ни одного тест-кейса');
+      if (Object.keys(patch).length === 0 && imported.testCases.length === 0) {
+        throw new AppError(
+          'VALIDATION',
+          'В файле не найдены поля задачи и тест-кейсы. Нужен документ ПМИ, выгруженный из этой программы.',
+        );
       }
 
       const latest = useProjectStore.getState().current;
@@ -83,15 +108,22 @@ export const wordImportActions = {
 
       useProjectStore.getState().updateDocument({
         ...latest.document,
-        testCases: renumberTestCases([...latest.document.testCases, ...testCases]),
+        meta: {
+          ...latest.document.meta,
+          ...patch,
+        },
+        testCases:
+          imported.testCases.length > 0
+            ? renumberTestCases([...latest.document.testCases, ...imported.testCases])
+            : latest.document.testCases,
       });
 
       void projectActions.saveIfDirty({ silent: true });
-      notifySuccess(`Импортировано тест-кейсов: ${testCases.length}`);
-      return testCases.length;
+      notifySuccess(describeImport(Object.keys(patch).length, imported.testCases.length));
+      return true;
     } catch (error) {
       notifyError(error, { title: 'Не удалось импортировать Word' });
-      return 0;
+      return false;
     }
   },
 };

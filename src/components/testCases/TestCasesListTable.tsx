@@ -15,22 +15,26 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ActionIcon, Box, Group, Table, Text, Tooltip } from '@mantine/core';
 import { IconCopy, IconEdit, IconGripVertical, IconTrash } from '@tabler/icons-react';
-import dayjs from 'dayjs';
 import type { CSSProperties } from 'react';
+import { IncludeInReportControl } from '@/components/testCases/IncludeInReportControl';
 import { TestOutcomeControl } from '@/components/testCases/TestOutcomeControl';
 import type { TestCase, TestResultOutcome } from '@/domain/types';
 import '@/components/testCases/testCasesTable.css';
 
 export type TestCasesListRow = Pick<
   TestCase,
-  'id' | 'number' | 'title' | 'goal' | 'createdAt' | 'updatedAt' | 'testOutcome'
->;
+  'id' | 'number' | 'title' | 'goal' | 'includeInReport' | 'testOutcome'
+> & {
+  /** Optional second line, for example the task a case was taken from. */
+  sourceLabel?: string;
+};
 
 type TestCasesListTableProps = {
   rows: TestCasesListRow[];
   onOpen: (row: TestCasesListRow) => void;
   onDelete?: (row: TestCasesListRow) => void;
   onDuplicate?: (row: TestCasesListRow) => void;
+  onIncludeInReportChange?: (row: TestCasesListRow, includeInReport: boolean) => void;
   onOutcomeChange?: (row: TestCasesListRow, outcome: TestResultOutcome) => void;
   /** When set, rows become draggable; called with ids in the new visual order. */
   onReorder?: (orderedIds: string[]) => void;
@@ -51,6 +55,7 @@ type SortableRowProps = {
   onOpen: (row: TestCasesListRow) => void;
   onDelete?: (row: TestCasesListRow) => void;
   onDuplicate?: (row: TestCasesListRow) => void;
+  onIncludeInReportChange?: (row: TestCasesListRow, includeInReport: boolean) => void;
   onOutcomeChange?: (row: TestCasesListRow, outcome: TestResultOutcome) => void;
   openingId: string | null;
   deletingId: string | null;
@@ -64,6 +69,7 @@ function SortableTestCaseRow({
   onOpen,
   onDelete,
   onDuplicate,
+  onIncludeInReportChange,
   onOutcomeChange,
   openingId,
   deletingId,
@@ -121,9 +127,29 @@ function SortableTestCaseRow({
         <Text lineClamp={2} title={label}>
           {label}
         </Text>
+        {row.sourceLabel ? (
+          <Text size="xs" c="dimmed" lineClamp={1}>
+            {row.sourceLabel}
+          </Text>
+        ) : null}
       </Table.Td>
-      <Table.Td>{dayjs(row.createdAt).format('DD.MM.YYYY HH:mm')}</Table.Td>
-      <Table.Td>{dayjs(row.updatedAt).format('DD.MM.YYYY HH:mm')}</Table.Td>
+      <Table.Td
+        style={{ width: 150 }}
+        onClick={(event) => {
+          event.stopPropagation();
+        }}
+      >
+        <IncludeInReportControl
+          value={row.includeInReport !== false}
+          onChange={
+            onIncludeInReportChange
+              ? (includeInReport) => {
+                  onIncludeInReportChange(row, includeInReport);
+                }
+              : undefined
+          }
+        />
+      </Table.Td>
       <Table.Td
         style={{ width: 118 }}
         onClick={(event) => {
@@ -191,6 +217,7 @@ export function TestCasesListTable({
   onOpen,
   onDelete,
   onDuplicate,
+  onIncludeInReportChange,
   onOutcomeChange,
   onReorder,
   openingId = null,
@@ -240,8 +267,7 @@ export function TestCasesListTable({
           <Table.Tr>
             <Table.Th style={{ width: sortable ? 140 : 120 }}>Тест №</Table.Th>
             <Table.Th>Цель / название</Table.Th>
-            <Table.Th style={{ width: 160 }}>Создан</Table.Th>
-            <Table.Th style={{ width: 160 }}>Изменён</Table.Th>
+            <Table.Th style={{ width: 150 }}>Добавить в отчет</Table.Th>
             <Table.Th style={{ width: 118 }}>Результат</Table.Th>
             <Table.Th style={{ width: actionsColWidth }}> </Table.Th>
           </Table.Tr>
@@ -249,7 +275,7 @@ export function TestCasesListTable({
         <Table.Tbody>
           {rows.length === 0 ? (
             <Table.Tr>
-              <Table.Td colSpan={6}>
+              <Table.Td colSpan={5}>
                 <Text c="dimmed" ta="center" py="lg">
                   {emptyText}
                 </Text>
@@ -265,6 +291,7 @@ export function TestCasesListTable({
                 onOpen={onOpen}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
+                onIncludeInReportChange={onIncludeInReportChange}
                 onOutcomeChange={onOutcomeChange}
                 openingId={openingId}
                 deletingId={deletingId}

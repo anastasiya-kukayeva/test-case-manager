@@ -576,10 +576,19 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
           children.push(...bodyLines(testCase.preconditions));
         }
 
-        const steps = fromRichText(testCase.steps);
-        if (steps.length > 0) {
+        const stepsHtml = testCase.steps?.html ?? '';
+        const hasSteps =
+          hasRichText(testCase.steps) ||
+          (settings.includeImages && stepsHtml.includes('data:image'));
+        if (hasSteps) {
           children.push(labelParagraph('Шаги:'));
-          children.push(...steps);
+          children.push(
+            ...(await fromRichContent(testCase.steps, {
+              includeImages: settings.includeImages,
+              includeCodeBlocks: settings.includeCodeBlocks,
+              includeLogs: settings.includeLogs,
+            })),
+          );
         }
 
         const verification = inlineVerificationAttachments(

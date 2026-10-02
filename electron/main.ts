@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, session, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerIpcHandlers } from './ipc/handlers';
@@ -57,7 +57,19 @@ function createWindow(): void {
   });
 }
 
+function enableRussianSpellcheck(): void {
+  const languages = session.defaultSession.availableSpellCheckerLanguages;
+  const russian = languages.find((code) => {
+    const normalized = code.toLowerCase();
+    return normalized === 'ru' || normalized.startsWith('ru-');
+  });
+  if (russian) {
+    session.defaultSession.setSpellCheckerLanguages([russian]);
+  }
+}
+
 app.whenReady().then(() => {
+  enableRussianSpellcheck();
   console.log('[tcm] Electron ready', {
     devServer: VITE_DEV_SERVER_URL ?? null,
     preload: path.join(__dirname, 'preload.cjs'),

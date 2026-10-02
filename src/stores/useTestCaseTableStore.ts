@@ -10,8 +10,7 @@ export type TestCaseColumnId =
   | 'select'
   | 'number'
   | 'title'
-  | 'createdAt'
-  | 'updatedAt'
+  | 'includeInReport'
   | 'testOutcome'
   | 'actions';
 
@@ -37,8 +36,7 @@ const DEFAULT_VISIBILITY: ColumnVisibilityState = {
   select: true,
   number: true,
   title: true,
-  createdAt: true,
-  updatedAt: true,
+  includeInReport: true,
   testOutcome: true,
   actions: true,
 };
@@ -70,7 +68,7 @@ export const useTestCaseTableStore = create<TestCaseTableUiState>((set, get) => 
   setColumnVisibility: (visibility) => set({ columnVisibility: visibility }),
   columnSizing: {},
   setColumnSizing: (sizing) => set({ columnSizing: sizing }),
-  columnPinning: { left: ['select', 'number'], right: ['testOutcome', 'actions'] },
+  columnPinning: { left: ['select', 'number'], right: ['includeInReport', 'testOutcome', 'actions'] },
   setColumnPinning: (pinning) => set({ columnPinning: pinning }),
   pageSize: 10,
   setPageSize: (size) => set({ pageSize: size }),

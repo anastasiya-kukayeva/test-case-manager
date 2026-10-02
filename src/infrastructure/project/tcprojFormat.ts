@@ -193,6 +193,7 @@ export function validateTaskDocument(value: unknown): TaskDocument {
       businessAnalyst:
         typeof testCase.businessAnalyst === 'string' ? testCase.businessAnalyst : '',
       steps: normalizeStepsContent((testCase as { steps?: unknown }).steps),
+      includeInReport: testCase.includeInReport !== false,
       includeInRegression: testCase.includeInRegression === true,
       includeInTaskRegression: testCase.includeInTaskRegression === true,
     })),

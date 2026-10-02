@@ -5,8 +5,7 @@ import { useTestCaseTableStore } from '@/stores/useTestCaseTableStore';
 const COLUMN_LABELS: Record<string, string> = {
   number: 'ID',
   title: 'Название',
-  createdAt: 'Дата создания',
-  updatedAt: 'Дата изменения',
+  includeInReport: 'Добавить в отчет',
   testOutcome: 'Результат',
 };
 

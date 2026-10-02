@@ -121,6 +121,9 @@ export function RegressionCasesPage() {
           onOutcomeChange={(row, outcome) => {
             testCaseActions.setOutcome(row.id, outcome);
           }}
+          onIncludeInReportChange={(row, includeInReport) => {
+            testCaseActions.setIncludeInReport(row.id, includeInReport);
+          }}
           emptyText="Нет кейсов для этого списка по текущим фильтрам"
         />
       </Card>

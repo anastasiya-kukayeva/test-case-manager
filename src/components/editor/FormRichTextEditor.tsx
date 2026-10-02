@@ -1,5 +1,6 @@
 import { ActionIcon, FileButton, Group, Tooltip } from '@mantine/core';
 import {
+  IconAbc,
   IconBold,
   IconCode,
   IconFileText,
@@ -21,6 +22,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { useMemo, useRef, useState } from 'react';
 import { PhotoSlider } from 'react-photo-view';
 import { extractImageFilesFromClipboard } from '@/application/testCases/screenshotHelpers';
+import { applyTypographyInEditor } from '@/application/text/russianTypography';
 import { DeletableCodeBlock } from '@/components/editor/DeletableCodeBlock';
 import { DeletableImage } from '@/components/editor/DeletableImage';
 import {
@@ -180,6 +182,8 @@ export function FormRichTextEditor({
         attributes: {
           class: `tcm-rte-prose${allowImages ? ' tcm-rte-prose--zoomable-images' : ''}`,
           style: `min-height: ${minHeight}px`,
+          spellcheck: 'true',
+          lang: 'ru',
         },
         handleClickOn: (_view, _pos, node, _nodePos, event) => {
           if (!allowImagesRef.current || node.type.name !== 'image') {
@@ -394,6 +398,21 @@ export function FormRichTextEditor({
               </Tooltip>
             </>
           ) : null}
+          <Tooltip label="Чистописание: кавычки «», тире и пробелы по правилам русского языка">
+            <ActionIcon
+              variant="default"
+              aria-label="Чистописание"
+              disabled={!editor}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                if (editor) {
+                  applyTypographyInEditor(editor);
+                }
+              }}
+            >
+              <IconAbc size={16} />
+            </ActionIcon>
+          </Tooltip>
           {allowImages ? (
             <FileButton
               accept="image/*"

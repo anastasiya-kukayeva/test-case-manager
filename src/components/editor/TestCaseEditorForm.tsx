@@ -6,7 +6,6 @@ import {
   Stack,
   Text,
   TextInput,
-  Textarea,
 } from '@mantine/core';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { IconDeviceFloppy, IconEye } from '@tabler/icons-react';
@@ -17,6 +16,7 @@ import {
 } from '@/application/testCases/testCaseFormMapper';
 import { EditorSection } from '@/components/editor/EditorSection';
 import { FormRichTextEditor } from '@/components/editor/FormRichTextEditor';
+import { ProseTextarea } from '@/components/editor/ProseTextarea';
 import { ScreenshotsField } from '@/components/editor/ScreenshotsField';
 import { TestCasePreview } from '@/components/editor/TestCasePreview';
 import { TestOutcomeSelector } from '@/components/editor/TestOutcomeSelector';
@@ -201,7 +201,7 @@ export function TestCaseEditorForm({
                 name="preconditions"
                 control={control}
                 render={({ field }) => (
-                  <Textarea
+                  <ProseTextarea
                     minRows={4}
                     autosize
                     placeholder="Например: пользователь авторизован; создан тестовый объект…"
@@ -214,7 +214,7 @@ export function TestCaseEditorForm({
             <EditorSection
               value="steps"
               title="4. Шаги тестирования"
-              description="Опишите шаги текстом; при необходимости включите нумерованный список"
+              description="Опишите шаги текстом, нумерованным списком и скриншотами"
             >
               <Controller
                 name="steps"
@@ -225,6 +225,7 @@ export function TestCaseEditorForm({
                     onChange={field.onChange}
                     placeholder="Опишите шаги тестирования…"
                     minHeight={180}
+                    allowImages
                     error={
                       typeof errors.steps?.message === 'string'
                         ? errors.steps.message

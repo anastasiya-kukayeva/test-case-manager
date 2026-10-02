@@ -1,12 +1,14 @@
 import mammoth from 'mammoth';
 import {
-  parsePmiTestCasesFromHtml,
+  parsePmiDocumentFromHtml,
   parsedPmiToTestCase,
+  type ParsedPmiTaskFields,
   type ParsedPmiTestCase,
 } from '@/infrastructure/import/parsePmiWordHtml';
 import type { TestCase } from '@/domain/types';
 
 export type DocxImportResult = {
+  task: ParsedPmiTaskFields;
   parsed: ParsedPmiTestCase[];
   testCases: TestCase[];
 };
@@ -35,12 +37,12 @@ export async function importTestCasesFromDocxBuffer(
     },
   );
 
-  const parsed = parsePmiTestCasesFromHtml(result.value);
-  const testCases = parsed.map((item, index) =>
+  const document = parsePmiDocumentFromHtml(result.value);
+  const testCases = document.testCases.map((item, index) =>
     parsedPmiToTestCase(item, String(startNumber + index)),
   );
 
-  return { parsed, testCases };
+  return { task: document.task, parsed: document.testCases, testCases };
 }
 
 export async function importTestCasesFromDocxBase64(

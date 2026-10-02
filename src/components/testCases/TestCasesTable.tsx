@@ -23,9 +23,9 @@ import {
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table';
-import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import type { TestCaseTableRow } from '@/application/testCases/filterTestCases';
+import { IncludeInReportControl } from '@/components/testCases/IncludeInReportControl';
 import { TestOutcomeControl } from '@/components/testCases/TestOutcomeControl';
 import type { TestResultOutcome } from '@/domain/types';
 import { useTestCaseTableStore } from '@/stores/useTestCaseTableStore';
@@ -38,6 +38,7 @@ type TestCasesTableProps = {
   onDelete: (ids: string[]) => void;
   onExportDocx?: (row: TestCaseTableRow) => void;
   onOutcomeChange?: (row: TestCaseTableRow, outcome: TestResultOutcome) => void;
+  onIncludeInReportChange?: (row: TestCaseTableRow, includeInReport: boolean) => void;
   rowSelection: RowSelectionState;
   onRowSelectionChange: OnChangeFn<RowSelectionState>;
 };
@@ -59,10 +60,11 @@ export function TestCasesTable({
   onDelete,
   onExportDocx,
   onOutcomeChange,
+  onIncludeInReportChange,
   rowSelection,
   onRowSelectionChange,
 }: TestCasesTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'updatedAt', desc: true }]);
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'number', desc: false }]);
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
 
   const columnVisibility = useTestCaseTableStore((state) => state.columnVisibility);
@@ -120,18 +122,22 @@ export function TestCasesTable({
         ),
       },
       {
-        accessorKey: 'createdAt',
-        id: 'createdAt',
-        header: 'Дата создания',
+        accessorKey: 'includeInReport',
+        id: 'includeInReport',
+        header: 'Добавить в отчет',
         size: 150,
-        cell: ({ getValue }) => dayjs(String(getValue())).format('DD.MM.YYYY HH:mm'),
-      },
-      {
-        accessorKey: 'updatedAt',
-        id: 'updatedAt',
-        header: 'Дата изменения',
-        size: 150,
-        cell: ({ getValue }) => dayjs(String(getValue())).format('DD.MM.YYYY HH:mm'),
+        cell: ({ row }) => (
+          <IncludeInReportControl
+            value={row.original.includeInReport !== false}
+            onChange={
+              onIncludeInReportChange
+                ? (includeInReport) => {
+                    onIncludeInReportChange(row.original, includeInReport);
+                  }
+                : undefined
+            }
+          />
+        ),
       },
       {
         accessorKey: 'testOutcome',
@@ -196,7 +202,7 @@ export function TestCasesTable({
         ),
       },
     ],
-    [onDelete, onDuplicate, onEdit, onExportDocx, onOutcomeChange],
+    [onDelete, onDuplicate, onEdit, onExportDocx, onOutcomeChange, onIncludeInReportChange],
   );
 
   const table = useReactTable({
@@ -330,7 +336,8 @@ export function TestCasesTable({
                   const isInteractive =
                     cell.column.id === 'select' ||
                     cell.column.id === 'actions' ||
-                    cell.column.id === 'testOutcome';
+                    cell.column.id === 'testOutcome' ||
+                    cell.column.id === 'includeInReport';
                   return (
                     <Table.Td
                       key={cell.id}

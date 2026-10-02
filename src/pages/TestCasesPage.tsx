@@ -10,7 +10,6 @@ import {
 import { nextTestCaseNumber } from '@/application/testCases/renumberTestCases';
 import { testCaseActions } from '@/application/testCases/testCaseActions';
 import { DuplicateTestCaseModal } from '@/components/testCases/DuplicateTestCaseModal';
-import { ImportWordTestCasesButton } from '@/components/testCases/ImportWordTestCasesButton';
 import { TestCaseDateFilter } from '@/components/testCases/TestCaseDateFilter';
 import { TestCaseFormModal } from '@/components/testCases/TestCaseFormModal';
 import {
@@ -103,12 +102,9 @@ export function TestCasesPage() {
             <Title order={2}>{getTaskShortLabel(current.document.meta)}</Title>
           </UnstyledButton>
         </Tooltip>
-        <Group gap="sm">
-          <ImportWordTestCasesButton />
-          <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
-            Создать тест-кейс
-          </Button>
-        </Group>
+        <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
+          Создать тест-кейс
+        </Button>
       </Group>
 
       <Card withBorder padding="md" radius="lg">
@@ -127,6 +123,9 @@ export function TestCasesPage() {
           }}
           onOutcomeChange={(row, outcome) => {
             testCaseActions.setOutcome(row.id, outcome);
+          }}
+          onIncludeInReportChange={(row, includeInReport) => {
+            testCaseActions.setIncludeInReport(row.id, includeInReport);
           }}
           onReorder={(orderedIds) => {
             testCaseActions.reorder(orderedIds);

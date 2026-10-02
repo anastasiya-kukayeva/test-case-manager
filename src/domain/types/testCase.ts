@@ -29,6 +29,8 @@ export type TestCase = {
   verificationResult: RichTextContent;
   verificationAttachments: TestAttachment[];
   testOutcome: TestResultOutcome;
+  /** Whether the case is marked for a future report. Does not change export yet. */
+  includeInReport: boolean;
   /** Marker for the shared regression list. */
   includeInRegression: boolean;
   /** Marker for this task's own regression list. */

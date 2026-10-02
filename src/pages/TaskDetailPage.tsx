@@ -6,7 +6,6 @@ import {
   SimpleGrid,
   Stack,
   Text,
-  Textarea,
   TextInput,
   Title,
 } from '@mantine/core';
@@ -22,7 +21,9 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { exportActions } from '@/application/export/exportActions';
 import { projectActions } from '@/application/project/projectActions';
+import { ImportWordTestCasesButton } from '@/components/testCases/ImportWordTestCasesButton';
 import { FormRichTextEditor } from '@/components/editor/FormRichTextEditor';
+import { ProseTextarea } from '@/components/editor/ProseTextarea';
 import { DirectoryApplicationSelect } from '@/components/directory/DirectoryApplicationSelect';
 import { DirectoryModuleSelect } from '@/components/directory/DirectoryModuleSelect';
 import { TestObjectLinksField } from '@/components/project/TestObjectLinksField';
@@ -107,6 +108,7 @@ export function TaskDetailPage() {
             >
               Тест-кейсы задачи
             </Button>
+            <ImportWordTestCasesButton />
             <Button
               size="sm"
               variant="light"
@@ -157,7 +159,7 @@ export function TaskDetailPage() {
               ) : null}
             </Group>
 
-            <Textarea
+            <ProseTextarea
               label="Название задачи"
               description="Текстовое поле, до 2000 символов"
               value={current.document.meta.name}
@@ -202,7 +204,7 @@ export function TaskDetailPage() {
                 onChange={(module) => updateProjectMeta({ module })}
               />
             </SimpleGrid>
-            <Textarea
+            <ProseTextarea
               label="Объект испытаний"
               description="Описание объекта; ссылки задаются отдельно ниже"
               value={current.document.meta.testObject}
@@ -228,7 +230,7 @@ export function TaskDetailPage() {
                 minHeight={100}
               />
             </div>
-            <Textarea
+            <ProseTextarea
               label="Общие положения"
               value={current.document.meta.generalProvisions}
               onChange={(event) => {
