@@ -84,8 +84,30 @@ function removeIfExists(dir) {
 }
 
 /**
- * Keep the current package version if that folder is still free; otherwise
- * bump patch until a new release folder name is available.
+ * Empties an existing release folder so the rebuild fully replaces it.
+ * Aborts the build if something (e.g. a running installer) blocks the removal,
+ * so we never end up with a mix of old and new files.
+ * @param {string} dir
+ */
+function clearDirOrExit(dir) {
+  if (!existsSync(dir)) {
+    return;
+  }
+  for (const name of readdirSync(dir)) {
+    try {
+      rmSync(path.join(dir, name), { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+    } catch (error) {
+      console.error(`[build] could not remove ${path.join(dir, name)}: ${error.message}`);
+      console.error('[build] close any app/installer using these files and try again.');
+      process.exit(1);
+    }
+  }
+}
+
+/**
+ * Always use the package.json version when its release folder already exists
+ * (the old build is overwritten). If the version is free and not behind the
+ * existing releases, use it as is; otherwise bump patch past the latest release.
  */
 function nextReleaseVersion() {
   const pkg = readPackageVersion();
@@ -93,7 +115,7 @@ function nextReleaseVersion() {
   const taken = new Set(existing.map((version) => version.text));
   const max = [pkg, ...existing].sort(compareSemver).at(-1) ?? pkg;
 
-  if (!taken.has(pkg.text) && compareSemver(pkg, max) >= 0) {
+  if (taken.has(pkg.text) || compareSemver(pkg, max) >= 0) {
     return pkg.text;
   }
 
@@ -127,7 +149,8 @@ const dryRun = process.argv.includes('--dry-run');
 
 if (dryRun) {
   const outDir = path.posix.join('release', version);
-  const action = version === current ? 'keep' : `bump ${current} →`;
+  const overwrite = existsSync(path.join(releaseRoot, version));
+  const action = version === current ? (overwrite ? 'overwrite' : 'keep') : `bump ${current} →`;
   console.log(`[build] ${action} ${version}`);
   console.log(`[build] output → ${outDir}`);
   process.exit(0);
@@ -160,6 +183,12 @@ const nodeOptions = [process.env.NODE_OPTIONS, `--require ${renameRetry}`].filte
 
 run('npx', ['tsc', '-b']);
 run('npx', ['vite', 'build']);
+
+// Compilation succeeded: now it is safe to drop the previous build of this version.
+if (existsSync(absOutDir) && readdirSync(absOutDir).length > 0) {
+  console.log(`[build] overwriting existing ${outDir}`);
+  clearDirOrExit(absOutDir);
+}
 run(
   'npx',
   [
