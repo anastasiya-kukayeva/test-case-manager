@@ -1,9 +1,8 @@
 import { Alert, AppShell, Code, Text } from '@mantine/core';
 import { IconAlertTriangle } from '@tabler/icons-react';
-import { AnimatePresence } from 'framer-motion';
+import { Fragment } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
-import { PageTransition } from '@/components/ui/PageTransition';
 import { projectFileService } from '@/infrastructure/project/projectFileService';
 import { AppFooter } from '@/layouts/AppFooter';
 import { AppHeader } from '@/layouts/AppHeader';
@@ -67,11 +66,9 @@ export function AppLayout() {
           </Alert>
         ) : null}
         <ErrorBoundary title="Ошибка на странице">
-          <AnimatePresence mode="wait">
-            <PageTransition key={location.pathname}>
-              <Outlet />
-            </PageTransition>
-          </AnimatePresence>
+          <Fragment key={location.pathname}>
+            <Outlet />
+          </Fragment>
         </ErrorBoundary>
       </AppShell.Main>
 
