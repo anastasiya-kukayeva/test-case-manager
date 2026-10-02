@@ -25,6 +25,7 @@ import {
   type RegressionCaseItem,
   type RegressionCasesByModule,
   type RegressionMode,
+  type RegressionTaskGroup,
 } from '@/application/regression/loadRegressionGroups';
 import { projectActions } from '@/application/project/projectActions';
 import { nextTestCaseNumber } from '@/application/testCases/renumberTestCases';
@@ -50,9 +51,13 @@ const UNASSIGNED_TAB = '__unassigned__';
 const EMPTY_GROUPS: RegressionCasesByModule = { modules: [], unassigned: [] };
 const EMPTY_EXPANDED: string[] = [];
 
+type DateFilter = ReturnType<typeof useTestCaseTableStore.getState>['filters']['date'];
+type RegressionListView = 'tasks' | 'cases';
+
 function toDisplayRows(
   cases: RegressionCaseItem[],
-  dateFilter: ReturnType<typeof useTestCaseTableStore.getState>['filters']['date'],
+  dateFilter: DateFilter,
+  showSource: boolean,
 ): TestCasesListRow[] {
   return cases
     .filter((item) => {
@@ -66,11 +71,102 @@ function toDisplayRows(
       goal: item.goal,
       includeInReport: item.includeInReport !== false,
       testOutcome: item.testOutcome,
-      sourceLabel:
-        item.taskShortLabel !== item.taskName
+      sourceLabel: showSource
+        ? item.taskShortLabel !== item.taskName
           ? `${item.taskShortLabel} — ${item.taskName}`
-          : item.taskShortLabel,
+          : item.taskShortLabel
+        : undefined,
     }));
+}
+
+function casesOf(tasks: RegressionTaskGroup[]): RegressionCaseItem[] {
+  return tasks.flatMap((task) => task.cases);
+}
+
+type CaseListHandlers = {
+  onOpen: (row: TestCasesListRow, view: RegressionListView) => void;
+  onDuplicate: (row: TestCasesListRow, view: RegressionListView) => void;
+  onDelete: (row: TestCasesListRow) => void;
+  onOutcomeChange: (row: TestCasesListRow, outcome: TestResultOutcome) => void;
+  onIncludeInReportChange: (row: TestCasesListRow, includeInReport: boolean) => void;
+  openingId: string | null;
+  deletingId: string | null;
+  duplicatingId: string | null;
+};
+
+function RegressionTaskList({
+  tasks,
+  dateFilter,
+  expandedTasks,
+  onExpandedTasksChange,
+  handlers,
+  rowKeyPrefix,
+  emptyText,
+}: {
+  tasks: RegressionTaskGroup[];
+  dateFilter: DateFilter;
+  expandedTasks: string[];
+  onExpandedTasksChange: (ids: string[]) => void;
+  handlers: CaseListHandlers;
+  rowKeyPrefix: string;
+  emptyText: string;
+}) {
+  const visible = tasks
+    .map((task) => ({ task, rows: toDisplayRows(task.cases, dateFilter, false) }))
+    .filter((item) => item.rows.length > 0);
+
+  if (visible.length === 0) {
+    return (
+      <Text c="dimmed" size="sm">
+        {emptyText}
+      </Text>
+    );
+  }
+
+  return (
+    <Accordion
+      multiple
+      variant="contained"
+      radius="md"
+      value={expandedTasks}
+      onChange={onExpandedTasksChange}
+    >
+      {visible.map(({ task, rows }) => (
+        <Accordion.Item key={`${rowKeyPrefix}${task.taskId}`} value={task.taskId}>
+          <Accordion.Control>
+            <Group justify="space-between" pr="md" wrap="nowrap">
+              <div>
+                <Text fw={600} lineClamp={1}>
+                  {task.taskShortLabel}
+                </Text>
+                {task.taskShortLabel !== task.taskName ? (
+                  <Text size="xs" c="dimmed" lineClamp={1}>
+                    {task.taskName}
+                  </Text>
+                ) : null}
+              </div>
+              <Badge variant="light">{rows.length}</Badge>
+            </Group>
+          </Accordion.Control>
+          <Accordion.Panel>
+            <TestCasesListTable
+              rows={rows}
+              onOpen={(row) => handlers.onOpen(row, 'tasks')}
+              onDuplicate={(row) => handlers.onDuplicate(row, 'tasks')}
+              onDelete={handlers.onDelete}
+              onOutcomeChange={handlers.onOutcomeChange}
+              onIncludeInReportChange={handlers.onIncludeInReportChange}
+              openingId={handlers.openingId}
+              deletingId={handlers.deletingId}
+              duplicatingId={handlers.duplicatingId}
+              emptyText={emptyText}
+              rowKeyPrefix={`${rowKeyPrefix}${task.taskId}`}
+            />
+          </Accordion.Panel>
+        </Accordion.Item>
+      ))}
+    </Accordion>
+  );
 }
 
 export function RegressionBrowsePage() {
@@ -93,10 +189,19 @@ export function RegressionBrowsePage() {
     mode ? state.regressionExpandedModules[mode] ?? EMPTY_EXPANDED : EMPTY_EXPANDED,
   );
   const setRegressionExpandedModules = useUiStore((state) => state.setRegressionExpandedModules);
+  const flatModules = useUiStore((state) =>
+    mode ? state.regressionFlatModules[mode] ?? EMPTY_EXPANDED : EMPTY_EXPANDED,
+  );
+  const setRegressionFlatModules = useUiStore((state) => state.setRegressionFlatModules);
+  const expandedTasks = useUiStore((state) =>
+    mode ? state.regressionExpandedTasks[mode] ?? EMPTY_EXPANDED : EMPTY_EXPANDED,
+  );
+  const setRegressionExpandedTasks = useUiStore((state) => state.setRegressionExpandedTasks);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [duplicateSource, setDuplicateSource] = useState<RegressionCaseItem | null>(null);
+  const [duplicateView, setDuplicateView] = useState<RegressionListView>('tasks');
   const [duplicateSuggestedNumber, setDuplicateSuggestedNumber] = useState('1');
 
   const reload = useCallback(async () => {
@@ -139,29 +244,45 @@ export function RegressionBrowsePage() {
     setRegressionListTab(mode, groups.modules.length > 0 ? MODULES_TAB : UNASSIGNED_TAB);
   }, [groups.modules.length, loading, mode, setRegressionListTab, tab]);
 
-  const rememberList = (item: RegressionCaseItem) => {
+  const rememberList = (item: RegressionCaseItem, view: RegressionListView) => {
     if (!mode) {
       return;
     }
+    const state = useUiStore.getState();
     if (item.module === UNASSIGNED_MODULE) {
       setRegressionListTab(mode, UNASSIGNED_TAB);
-      return;
+    } else {
+      setRegressionListTab(mode, MODULES_TAB);
+      const openNames = state.regressionExpandedModules[mode] ?? [];
+      if (!openNames.includes(item.module)) {
+        setRegressionExpandedModules(mode, [...openNames, item.module]);
+      }
+      const flat = state.regressionFlatModules[mode] ?? [];
+      if (view === 'cases') {
+        if (!flat.includes(item.module)) {
+          setRegressionFlatModules(mode, [...flat, item.module]);
+        }
+      } else if (flat.includes(item.module)) {
+        setRegressionFlatModules(
+          mode,
+          flat.filter((name) => name !== item.module),
+        );
+      }
     }
-    setRegressionListTab(mode, MODULES_TAB);
-    const openNames = useUiStore.getState().regressionExpandedModules[mode] ?? [];
-    if (!openNames.includes(item.module)) {
-      setRegressionExpandedModules(mode, [...openNames, item.module]);
+    if (view === 'tasks') {
+      const openTasks = state.regressionExpandedTasks[mode] ?? [];
+      if (!openTasks.includes(item.taskId)) {
+        setRegressionExpandedTasks(mode, [...openTasks, item.taskId]);
+      }
     }
   };
 
-  const unassignedRows = useMemo(
-    () => toDisplayRows(groups.unassigned, dateFilter),
-    [groups.unassigned, dateFilter],
-  );
-
   const caseById = useMemo(() => {
     const map = new Map<string, RegressionCaseItem>();
-    for (const item of [...groups.modules.flatMap((moduleGroup) => moduleGroup.cases), ...groups.unassigned]) {
+    for (const item of [
+      ...groups.modules.flatMap((moduleGroup) => casesOf(moduleGroup.tasks)),
+      ...casesOf(groups.unassigned),
+    ]) {
       map.set(item.id, item);
     }
     return map;
@@ -188,7 +309,7 @@ export function RegressionBrowsePage() {
     });
   };
 
-  const openCase = async (row: TestCasesListRow) => {
+  const openCase = async (row: TestCasesListRow, view: RegressionListView) => {
     if (!mode) {
       return;
     }
@@ -196,7 +317,7 @@ export function RegressionBrowsePage() {
     if (!item) {
       return;
     }
-    rememberList(item);
+    rememberList(item, view);
     setOpeningId(row.id);
     try {
       const ok = await ensureTaskOpen(item);
@@ -229,11 +350,12 @@ export function RegressionBrowsePage() {
     }
   };
 
-  const openDuplicate = async (row: TestCasesListRow) => {
+  const openDuplicate = async (row: TestCasesListRow, view: RegressionListView) => {
     const item = caseById.get(row.id);
     if (!item) {
       return;
     }
+    setDuplicateView(view);
     setDuplicatingId(row.id);
     try {
       const ok = await ensureTaskOpen(item);
@@ -278,6 +400,27 @@ export function RegressionBrowsePage() {
     }
   };
 
+  const listHandlers: CaseListHandlers = {
+    onOpen: (row, view) => {
+      void openCase(row, view);
+    },
+    onDuplicate: (row, view) => {
+      void openDuplicate(row, view);
+    },
+    onDelete: (row) => {
+      void deleteCase(row);
+    },
+    onOutcomeChange: (row, outcome) => {
+      void changeOutcome(row, outcome);
+    },
+    onIncludeInReportChange: (row, includeInReport) => {
+      void changeIncludeInReport(row, includeInReport);
+    },
+    openingId,
+    deletingId,
+    duplicatingId,
+  };
+
   if (!mode) {
     return (
       <Stack gap="md">
@@ -293,7 +436,10 @@ export function RegressionBrowsePage() {
 
   const title = REGRESSION_MODE_LABELS[mode];
   const checkboxLabel = mode === 'task' ? 'Добавить в регресс задачи?' : 'Добавить в регресс?';
-  const hasCases = groups.modules.some((item) => item.cases.length > 0) || groups.unassigned.length > 0;
+  const hasCases =
+    groups.modules.some((item) => casesOf(item.tasks).length > 0) ||
+    casesOf(groups.unassigned).length > 0;
+  const unassignedCount = casesOf(groups.unassigned).length;
   const duplicateLabel =
     duplicateSource?.goal?.plainText?.trim() || duplicateSource?.title?.trim() || '';
 
@@ -313,7 +459,8 @@ export function RegressionBrowsePage() {
           <div>
             <Title order={2}>{title}</Title>
             <Text c="dimmed" mt="xs">
-              Кейсы с отметкой «{checkboxLabel}», собранные по модулю задачи.
+              Кейсы с отметкой «{checkboxLabel}». Под модулем — задачи, у задачи — её кейсы.
+              Повторный клик по модулю показывает все кейсы модуля.
             </Text>
           </div>
           <Tooltip label="Обновить">
@@ -362,7 +509,7 @@ export function RegressionBrowsePage() {
                 <Group gap={8} wrap="nowrap">
                   <span>{UNASSIGNED_MODULE}</span>
                   <Badge variant="light" size="sm">
-                    {groups.unassigned.length}
+                    {unassignedCount}
                   </Badge>
                 </Group>
               </Tabs.Tab>
@@ -383,60 +530,103 @@ export function RegressionBrowsePage() {
                     radius="lg"
                     value={expandedModules}
                     onChange={(value) => {
-                      if (mode) {
-                        setRegressionExpandedModules(mode, value);
+                      if (!mode) {
+                        return;
                       }
+                      const opened = value.filter((name) => !expandedModules.includes(name));
+                      const closed = expandedModules.filter((name) => !value.includes(name));
+                      const closing = closed.length === 1 ? closed[0] : undefined;
+                      if (closing && opened.length === 0 && !flatModules.includes(closing)) {
+                        setRegressionFlatModules(mode, [...flatModules, closing]);
+                        return;
+                      }
+                      if (opened.length > 0) {
+                        setRegressionFlatModules(
+                          mode,
+                          flatModules.filter((name) => !opened.includes(name)),
+                        );
+                      }
+                      if (closed.length > 0) {
+                        setRegressionFlatModules(
+                          mode,
+                          flatModules.filter((name) => !closed.includes(name)),
+                        );
+                      }
+                      setRegressionExpandedModules(mode, value);
                     }}
                   >
-                    {groups.modules.map((moduleGroup) => (
-                      <Accordion.Item key={moduleGroup.moduleName} value={moduleGroup.moduleName}>
-                        <Accordion.Control>
-                          <Group justify="space-between" pr="md" wrap="nowrap">
-                            <Text fw={700} lineClamp={1}>
-                              {moduleGroup.moduleName}
-                            </Text>
-                            <Badge variant="light">{moduleGroup.cases.length}</Badge>
-                          </Group>
-                        </Accordion.Control>
-                        <Accordion.Panel>
-                          <TestCasesListTable
-                            rows={toDisplayRows(moduleGroup.cases, dateFilter)}
-                            onOpen={(row) => void openCase(row)}
-                            onDuplicate={(row) => void openDuplicate(row)}
-                            onDelete={(row) => void deleteCase(row)}
-                            onOutcomeChange={(row, outcome) => void changeOutcome(row, outcome)}
-                            onIncludeInReportChange={(row, includeInReport) =>
-                              void changeIncludeInReport(row, includeInReport)
-                            }
-                            openingId={openingId}
-                            deletingId={deletingId}
-                            duplicatingId={duplicatingId}
-                            emptyText="Нет кейсов для этого модуля по текущим фильтрам"
-                            rowKeyPrefix={moduleGroup.moduleName}
-                          />
-                        </Accordion.Panel>
-                      </Accordion.Item>
-                    ))}
+                    {groups.modules.map((moduleGroup) => {
+                      const moduleCases = casesOf(moduleGroup.tasks);
+                      const showAllCases = flatModules.includes(moduleGroup.moduleName);
+                      return (
+                        <Accordion.Item key={moduleGroup.moduleName} value={moduleGroup.moduleName}>
+                          <Accordion.Control>
+                            <Group justify="space-between" pr="md" wrap="nowrap">
+                              <Text fw={700} lineClamp={1}>
+                                {moduleGroup.moduleName}
+                              </Text>
+                              <Group gap={8} wrap="nowrap">
+                                {showAllCases ? (
+                                  <Badge variant="outline">Все кейсы</Badge>
+                                ) : null}
+                                <Badge variant="light">{moduleCases.length}</Badge>
+                              </Group>
+                            </Group>
+                          </Accordion.Control>
+                          <Accordion.Panel>
+                            {showAllCases ? (
+                              <TestCasesListTable
+                                rows={toDisplayRows(moduleCases, dateFilter, true)}
+                                onOpen={(row) => void openCase(row, 'cases')}
+                                onDuplicate={(row) => void openDuplicate(row, 'cases')}
+                                onDelete={(row) => void deleteCase(row)}
+                                onOutcomeChange={(row, outcome) => void changeOutcome(row, outcome)}
+                                onIncludeInReportChange={(row, includeInReport) =>
+                                  void changeIncludeInReport(row, includeInReport)
+                                }
+                                openingId={openingId}
+                                deletingId={deletingId}
+                                duplicatingId={duplicatingId}
+                                emptyText="Нет кейсов для этого модуля по текущим фильтрам"
+                                rowKeyPrefix={moduleGroup.moduleName}
+                              />
+                            ) : (
+                              <RegressionTaskList
+                                tasks={moduleGroup.tasks}
+                                dateFilter={dateFilter}
+                                expandedTasks={expandedTasks}
+                                onExpandedTasksChange={(ids) => {
+                                  if (mode) {
+                                    setRegressionExpandedTasks(mode, ids);
+                                  }
+                                }}
+                                handlers={listHandlers}
+                                rowKeyPrefix={moduleGroup.moduleName}
+                                emptyText="Нет кейсов для этого модуля по текущим фильтрам"
+                              />
+                            )}
+                          </Accordion.Panel>
+                        </Accordion.Item>
+                      );
+                    })}
                   </Accordion>
                 )}
               </Tabs.Panel>
 
               <Tabs.Panel value={UNASSIGNED_TAB}>
                 <Card withBorder padding="md" radius="lg">
-                  <TestCasesListTable
-                    rows={unassignedRows}
-                    onOpen={(row) => void openCase(row)}
-                    onDuplicate={(row) => void openDuplicate(row)}
-                    onDelete={(row) => void deleteCase(row)}
-                    onOutcomeChange={(row, outcome) => void changeOutcome(row, outcome)}
-                    onIncludeInReportChange={(row, includeInReport) =>
-                      void changeIncludeInReport(row, includeInReport)
-                    }
-                    openingId={openingId}
-                    deletingId={deletingId}
-                    duplicatingId={duplicatingId}
-                    emptyText="Нет кейсов у задач без модуля"
+                  <RegressionTaskList
+                    tasks={groups.unassigned}
+                    dateFilter={dateFilter}
+                    expandedTasks={expandedTasks}
+                    onExpandedTasksChange={(ids) => {
+                      if (mode) {
+                        setRegressionExpandedTasks(mode, ids);
+                      }
+                    }}
+                    handlers={listHandlers}
                     rowKeyPrefix="unassigned"
+                    emptyText="Нет кейсов у задач без модуля"
                   />
                 </Card>
               </Tabs.Panel>
@@ -455,7 +645,7 @@ export function RegressionBrowsePage() {
           if (!duplicateSource || !mode) {
             return;
           }
-          rememberList(duplicateSource);
+          rememberList(duplicateSource, duplicateView);
           const created = testCaseActions.duplicate(duplicateSource.id, number);
           setDuplicateSource(null);
           if (created) {

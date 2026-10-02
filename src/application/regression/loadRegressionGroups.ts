@@ -38,14 +38,22 @@ export type RegressionCaseItem = {
   module: string;
 };
 
+export type RegressionTaskGroup = {
+  taskId: string;
+  taskName: string;
+  taskShortLabel: string;
+  taskFilePath: string | null;
+  cases: RegressionCaseItem[];
+};
+
 export type RegressionModuleCases = {
   moduleName: string;
-  cases: RegressionCaseItem[];
+  tasks: RegressionTaskGroup[];
 };
 
 export type RegressionCasesByModule = {
   modules: RegressionModuleCases[];
-  unassigned: RegressionCaseItem[];
+  unassigned: RegressionTaskGroup[];
 };
 
 type LoadedTask = {
@@ -161,10 +169,33 @@ export async function loadRegressionCasesByModule(mode: RegressionMode): Promise
   return {
     modules: moduleNames.map((moduleName) => ({
       moduleName,
-      cases: named.filter(
-        (item) => item.module.toLocaleLowerCase('ru') === moduleName.toLocaleLowerCase('ru'),
+      tasks: groupCasesByTask(
+        named.filter(
+          (item) => item.module.toLocaleLowerCase('ru') === moduleName.toLocaleLowerCase('ru'),
+        ),
       ),
     })),
-    unassigned,
+    unassigned: groupCasesByTask(unassigned),
   };
+}
+
+function groupCasesByTask(cases: RegressionCaseItem[]): RegressionTaskGroup[] {
+  const groups: RegressionTaskGroup[] = [];
+  const indexByTask = new Map<string, number>();
+  for (const item of cases) {
+    const existing = indexByTask.get(item.taskId);
+    if (existing === undefined) {
+      indexByTask.set(item.taskId, groups.length);
+      groups.push({
+        taskId: item.taskId,
+        taskName: item.taskName,
+        taskShortLabel: item.taskShortLabel,
+        taskFilePath: item.taskFilePath,
+        cases: [item],
+      });
+      continue;
+    }
+    groups[existing]?.cases.push(item);
+  }
+  return groups;
 }

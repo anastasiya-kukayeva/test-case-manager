@@ -56,6 +56,7 @@ type SortableRowProps = {
   onDelete?: (row: TestCasesListRow) => void;
   onDuplicate?: (row: TestCasesListRow) => void;
   onIncludeInReportChange?: (row: TestCasesListRow, includeInReport: boolean) => void;
+  showIncludeInReport: boolean;
   onOutcomeChange?: (row: TestCasesListRow, outcome: TestResultOutcome) => void;
   openingId: string | null;
   deletingId: string | null;
@@ -70,6 +71,7 @@ function SortableTestCaseRow({
   onDelete,
   onDuplicate,
   onIncludeInReportChange,
+  showIncludeInReport,
   onOutcomeChange,
   openingId,
   deletingId,
@@ -133,23 +135,25 @@ function SortableTestCaseRow({
           </Text>
         ) : null}
       </Table.Td>
-      <Table.Td
-        style={{ width: 150 }}
-        onClick={(event) => {
-          event.stopPropagation();
-        }}
-      >
-        <IncludeInReportControl
-          value={row.includeInReport !== false}
-          onChange={
-            onIncludeInReportChange
-              ? (includeInReport) => {
-                  onIncludeInReportChange(row, includeInReport);
-                }
-              : undefined
-          }
-        />
-      </Table.Td>
+      {showIncludeInReport ? (
+        <Table.Td
+          style={{ width: 150 }}
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <IncludeInReportControl
+            value={row.includeInReport !== false}
+            onChange={
+              onIncludeInReportChange
+                ? (includeInReport) => {
+                    onIncludeInReportChange(row, includeInReport);
+                  }
+                : undefined
+            }
+          />
+        </Table.Td>
+      ) : null}
       <Table.Td
         style={{ width: 118 }}
         onClick={(event) => {
@@ -250,6 +254,8 @@ export function TestCasesListTable({
     onReorder(next.map((row) => row.id));
   };
 
+  const showIncludeInReport = Boolean(onIncludeInReportChange);
+  const columnCount = showIncludeInReport ? 5 : 4;
   const actionsColWidth =
     56 + (onDuplicate ? 36 : 0) + (onDelete ? 36 : 0);
 
@@ -267,7 +273,9 @@ export function TestCasesListTable({
           <Table.Tr>
             <Table.Th style={{ width: sortable ? 140 : 120 }}>Тест №</Table.Th>
             <Table.Th>Цель / название</Table.Th>
-            <Table.Th style={{ width: 150 }}>Добавить в отчет</Table.Th>
+            {showIncludeInReport ? (
+              <Table.Th style={{ width: 150 }}>Добавить в отчет</Table.Th>
+            ) : null}
             <Table.Th style={{ width: 118 }}>Результат</Table.Th>
             <Table.Th style={{ width: actionsColWidth }}> </Table.Th>
           </Table.Tr>
@@ -275,7 +283,7 @@ export function TestCasesListTable({
         <Table.Tbody>
           {rows.length === 0 ? (
             <Table.Tr>
-              <Table.Td colSpan={5}>
+              <Table.Td colSpan={columnCount}>
                 <Text c="dimmed" ta="center" py="lg">
                   {emptyText}
                 </Text>
@@ -292,6 +300,7 @@ export function TestCasesListTable({
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
                 onIncludeInReportChange={onIncludeInReportChange}
+                showIncludeInReport={showIncludeInReport}
                 onOutcomeChange={onOutcomeChange}
                 openingId={openingId}
                 deletingId={deletingId}

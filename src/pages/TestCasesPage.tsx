@@ -124,9 +124,6 @@ export function TestCasesPage() {
           onOutcomeChange={(row, outcome) => {
             testCaseActions.setOutcome(row.id, outcome);
           }}
-          onIncludeInReportChange={(row, includeInReport) => {
-            testCaseActions.setIncludeInReport(row.id, includeInReport);
-          }}
           onReorder={(orderedIds) => {
             testCaseActions.reorder(orderedIds);
           }}

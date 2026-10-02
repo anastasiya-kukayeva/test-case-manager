@@ -208,29 +208,6 @@ export function AllTestCasesPage() {
     );
   };
 
-  const changeIncludeInReport = async (row: CatalogTestCaseRow, includeInReport: boolean) => {
-    const ok = await ensureTaskOpen(row);
-    if (!ok) {
-      return;
-    }
-
-    const updated = testCaseActions.setIncludeInReport(row.id, includeInReport);
-    if (!updated) {
-      return;
-    }
-
-    setGroups((prev) =>
-      prev.map((group) => ({
-        ...group,
-        testCases: group.testCases.map((item) =>
-          item.id === row.id
-            ? { ...item, includeInReport, updatedAt: new Date().toISOString() }
-            : item,
-        ),
-      })),
-    );
-  };
-
   const query = searchQuery.trim();
 
   const visibleGroups = useMemo(() => {
@@ -403,12 +380,6 @@ export function AllTestCasesPage() {
                             const full = findCase(group, row.id);
                             if (full) {
                               void changeOutcome(full, outcome);
-                            }
-                          }}
-                          onIncludeInReportChange={(row, includeInReport) => {
-                            const full = findCase(group, row.id);
-                            if (full) {
-                              void changeIncludeInReport(full, includeInReport);
                             }
                           }}
                           onReorder={

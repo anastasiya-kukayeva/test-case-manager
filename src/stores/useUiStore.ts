@@ -21,6 +21,12 @@ type UiStoreState = {
   /** Module names left open in the regression list, kept across the case editor. */
   regressionExpandedModules: Partial<Record<'suite' | 'task', string[]>>;
   setRegressionExpandedModules: (mode: 'suite' | 'task', names: string[]) => void;
+  /** Modules showing every case at once, instead of the per-task list. */
+  regressionFlatModules: Partial<Record<'suite' | 'task', string[]>>;
+  setRegressionFlatModules: (mode: 'suite' | 'task', names: string[]) => void;
+  /** Task ids left open under a module or on the unassigned tab. */
+  regressionExpandedTasks: Partial<Record<'suite' | 'task', string[]>>;
+  setRegressionExpandedTasks: (mode: 'suite' | 'task', ids: string[]) => void;
 };
 
 export const useUiStore = create<UiStoreState>((set, get) => ({
@@ -50,5 +56,15 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
   setRegressionExpandedModules: (mode, names) =>
     set((state) => ({
       regressionExpandedModules: { ...state.regressionExpandedModules, [mode]: names },
+    })),
+  regressionFlatModules: {},
+  setRegressionFlatModules: (mode, names) =>
+    set((state) => ({
+      regressionFlatModules: { ...state.regressionFlatModules, [mode]: names },
+    })),
+  regressionExpandedTasks: {},
+  setRegressionExpandedTasks: (mode, ids) =>
+    set((state) => ({
+      regressionExpandedTasks: { ...state.regressionExpandedTasks, [mode]: ids },
     })),
 }));
