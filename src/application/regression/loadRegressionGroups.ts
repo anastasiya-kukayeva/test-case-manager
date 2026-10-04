@@ -35,6 +35,8 @@ export type RegressionCaseItem = {
   taskName: string;
   taskShortLabel: string;
   taskFilePath: string | null;
+  /** Application name from the parent task. */
+  application: string;
   module: string;
 };
 
@@ -154,6 +156,7 @@ export async function loadRegressionCasesByModule(mode: RegressionMode): Promise
         taskName: task.meta.name,
         taskShortLabel: getTaskShortLabel(task.meta),
         taskFilePath: task.filePath,
+        application: task.meta.application?.trim() ?? '',
         module: moduleName,
       });
     }

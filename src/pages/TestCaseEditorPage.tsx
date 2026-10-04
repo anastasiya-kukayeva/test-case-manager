@@ -15,10 +15,14 @@ export function TestCaseEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const navState = location.state as { from?: string; mode?: string } | null;
+  const navState = location.state as { from?: string; mode?: string; returnTo?: string } | null;
   const fromRegression = navState?.from === 'regression';
   const regressionMode: RegressionMode = isRegressionMode(navState?.mode) ? navState.mode : 'suite';
-  const listRoute = fromRegression ? regressionBrowsePath(regressionMode) : AppRoutes.testCases;
+  const regressionReturn =
+    navState?.returnTo?.startsWith(`/regression/browse/${regressionMode}/`)
+      ? navState.returnTo
+      : regressionBrowsePath(regressionMode);
+  const listRoute = fromRegression ? regressionReturn : AppRoutes.testCases;
   const current = useProjectStore((state) => state.current);
   const updateTestCase = useProjectStore((state) => state.updateTestCase);
   const flushRef = useRef<(() => void) | null>(null);

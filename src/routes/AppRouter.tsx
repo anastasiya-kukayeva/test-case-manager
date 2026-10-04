@@ -29,6 +29,11 @@ const RegressionBrowsePage = lazy(async () => {
   return { default: module.RegressionBrowsePage };
 });
 
+const RegressionScopeCasesPage = lazy(async () => {
+  const module = await import('@/pages/RegressionScopeCasesPage');
+  return { default: module.RegressionScopeCasesPage };
+});
+
 const TestCasesPage = lazy(async () => {
   const module = await import('@/pages/TestCasesPage');
   return { default: module.TestCasesPage };
@@ -78,6 +83,14 @@ export function AppRouter() {
           element={
             <LazyPage>
               <RegressionPage />
+            </LazyPage>
+          }
+        />
+        <Route
+          path="/regression/browse/:mode/:scope/:scopeId"
+          element={
+            <LazyPage>
+              <RegressionScopeCasesPage />
             </LazyPage>
           }
         />

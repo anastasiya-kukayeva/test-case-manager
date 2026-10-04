@@ -28,3 +28,13 @@ export function testCaseEditorPath(id: string): string {
 export function regressionBrowsePath(mode: 'suite' | 'task'): string {
   return `/regression/browse/${mode}`;
 }
+
+/** All regression cases of one module. */
+export function regressionModuleCasesPath(mode: 'suite' | 'task', moduleName: string): string {
+  return `/regression/browse/${mode}/module/${encodeURIComponent(moduleName)}`;
+}
+
+/** Regression cases of one task. */
+export function regressionTaskCasesPath(mode: 'suite' | 'task', taskId: string): string {
+  return `/regression/browse/${mode}/task/${encodeURIComponent(taskId)}`;
+}

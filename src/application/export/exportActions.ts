@@ -3,6 +3,11 @@ import { notifyError } from '@/application/errors/errorHandler';
 import { notifyExportSaved } from '@/application/export/notifyExportSaved';
 import { DEFAULT_APP_SETTINGS, type TaskDocument, type TestCase } from '@/domain/types';
 import { buildPmiDocx, buildTestCaseDocx } from '@/infrastructure/export/docxExportService';
+import {
+  buildRegressionReportDocx,
+  REGRESSION_REPORT_TITLE,
+  type RegressionReportHeader,
+} from '@/infrastructure/export/regressionReportDocx';
 import { uint8ArrayToBase64 } from '@/infrastructure/export/exportUtils';
 import { useAppStore } from '@/stores/useAppStore';
 import { useProjectStore } from '@/stores/useProjectStore';
@@ -112,6 +117,28 @@ export const exportActions = {
       return true;
     } catch (error) {
       notifyError(error, { title: 'Не удалось экспортировать ПМИ в Word' });
+      return false;
+    }
+  },
+
+  /** Regression report: header and the cases marked for the report. */
+  async exportRegressionReport(header: RegressionReportHeader): Promise<boolean> {
+    try {
+      const bytes = await buildRegressionReportDocx(header);
+      const savedPath = await saveDocxFile({
+        bytes,
+        suggestedName: `${sanitizeFileName(REGRESSION_REPORT_TITLE)}.docx`,
+        title: 'Экспорт отчета в Word',
+      });
+
+      if (!savedPath) {
+        return false;
+      }
+
+      notifyExportSaved(savedPath, 'DOCX');
+      return true;
+    } catch (error) {
+      notifyError(error, { title: 'Не удалось экспортировать отчет в Word' });
       return false;
     }
   },
