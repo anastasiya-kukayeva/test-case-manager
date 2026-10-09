@@ -45,7 +45,10 @@ export function TestCasesPage() {
     if (!current) {
       return [];
     }
-    return toTestCaseRows(current.document.testCases, current.document.meta.name);
+    return toTestCaseRows(
+      current.document.testCases.filter((item) => !item.regressionOnly),
+      current.document.meta.name,
+    );
   }, [current]);
 
   const filteredRows = useMemo(
@@ -123,6 +126,9 @@ export function TestCasesPage() {
           }}
           onOutcomeChange={(row, outcome) => {
             testCaseActions.setOutcome(row.id, outcome);
+          }}
+          onRegressionChange={(row, patch) => {
+            testCaseActions.setRegressionFlags(row.id, patch);
           }}
           onReorder={(orderedIds) => {
             testCaseActions.reorder(orderedIds);

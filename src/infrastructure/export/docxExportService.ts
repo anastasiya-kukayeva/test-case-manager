@@ -518,6 +518,7 @@ async function imageParagraphs(dataUrl: string): Promise<Paragraph[]> {
 export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8Array> {
   const { document, settings } = context;
   const meta = document.meta;
+  const testCases = document.testCases.filter((item) => !item.regressionOnly);
   const children: FileChild[] = [];
 
   const taskName = meta.name?.trim() || 'Без названия';
@@ -541,7 +542,7 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
       kind: 'functional',
     });
   }
-  if (document.testCases.length > 0) {
+  if (testCases.length > 0) {
     sectionPlan.push({ id: 'toc-scenario', title: 'Сценарий испытаний', kind: 'scenario' });
   }
 
@@ -557,7 +558,7 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
     tocEntries.push({
       id: 'toc-risks',
       title: 'Риски и ограничения',
-      page: estimateRisksTocPage(document.testCases.length, sectionPlan.length > 0),
+      page: estimateRisksTocPage(testCases.length, sectionPlan.length > 0),
       pageRef: true,
     });
   }
@@ -587,8 +588,8 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
       continue;
     }
     if (section.kind === 'scenario') {
-      for (let i = 0; i < document.testCases.length; i += 1) {
-        const testCase = document.testCases[i];
+      for (let i = 0; i < testCases.length; i += 1) {
+        const testCase = testCases[i];
         const numberLabel = testCase.number?.trim() || String(i + 1);
 
         children.push(

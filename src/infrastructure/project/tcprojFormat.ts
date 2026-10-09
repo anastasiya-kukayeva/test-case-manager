@@ -196,6 +196,7 @@ export function validateTaskDocument(value: unknown): TaskDocument {
       includeInReport: testCase.includeInReport !== false,
       includeInRegression: testCase.includeInRegression === true,
       includeInTaskRegression: testCase.includeInTaskRegression === true,
+      regressionOnly: testCase.regressionOnly === true,
     })),
   };
 }

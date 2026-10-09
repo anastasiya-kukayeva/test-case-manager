@@ -41,8 +41,13 @@
 }
 
 .tcm-table-wrap tbody tr.tcm-table-row td {
-  transition: background-color 120ms ease;
+  transition: background-color 120ms ease, opacity 180ms ease;
   background: var(--mantine-color-body);
+}
+
+.tcm-table-wrap tbody tr.tcm-table-row.is-leaving td {
+  opacity: 0.35;
+  pointer-events: none;
 }
 
 .tcm-table-wrap tbody tr.tcm-table-row:hover td {

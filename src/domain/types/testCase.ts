@@ -35,6 +35,8 @@ export type TestCase = {
   includeInRegression: boolean;
   /** Marker for this task's own regression list. */
   includeInTaskRegression: boolean;
+  /** Imported from a regression report: shown on the regression pages only. */
+  regressionOnly?: boolean;
   createdAt: string;
   updatedAt: string;
 };

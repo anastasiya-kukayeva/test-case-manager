@@ -49,6 +49,8 @@ type TestCasesListTableProps = {
   openingId?: string | null;
   deletingId?: string | null;
   duplicatingId?: string | null;
+  /** Row ids fading out after a regression mark was turned off. */
+  leavingIds?: ReadonlySet<string>;
   emptyText?: string;
   rowKeyPrefix?: string;
 };
@@ -71,6 +73,7 @@ type SortableRowProps = {
   openingId: string | null;
   deletingId: string | null;
   duplicatingId: string | null;
+  leaving: boolean;
   rowKey: string;
 };
 
@@ -88,6 +91,7 @@ function SortableTestCaseRow({
   openingId,
   deletingId,
   duplicatingId,
+  leaving,
   rowKey,
 }: SortableRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -109,7 +113,7 @@ function SortableTestCaseRow({
     <Table.Tr
       ref={setNodeRef}
       key={rowKey}
-      className={`tcm-table-row${isDragging ? ' is-dragging' : ''}`}
+      className={`tcm-table-row${isDragging ? ' is-dragging' : ''}${leaving ? ' is-leaving' : ''}`}
       style={style}
       onClick={() => onOpen(row)}
     >
@@ -284,6 +288,7 @@ export function TestCasesListTable({
   openingId = null,
   deletingId = null,
   duplicatingId = null,
+  leavingIds,
   emptyText = 'Нет тест-кейсов',
   rowKeyPrefix = '',
 }: TestCasesListTableProps) {
@@ -389,6 +394,7 @@ export function TestCasesListTable({
                 openingId={openingId}
                 deletingId={deletingId}
                 duplicatingId={duplicatingId}
+                leaving={Boolean(leavingIds?.has(row.id))}
               />
             ))
           )}

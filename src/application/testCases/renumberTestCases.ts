@@ -50,8 +50,9 @@ export function reorderTestCasesByIds(
 }
 
 export function nextTestCaseNumber(testCases: TestCase[]): string {
-  let max = testCases.length;
-  for (const testCase of testCases) {
+  const taskCases = testCases.filter((item) => !item.regressionOnly);
+  let max = taskCases.length;
+  for (const testCase of taskCases) {
     const parsed = Number.parseInt(String(testCase.number).trim(), 10);
     if (Number.isFinite(parsed) && parsed > max) {
       max = parsed;

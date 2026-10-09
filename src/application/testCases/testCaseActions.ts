@@ -119,6 +119,7 @@ export const testCaseActions = {
         includeInReport: existing.includeInReport !== false,
         includeInRegression: existing.includeInRegression,
         includeInTaskRegression: existing.includeInTaskRegression,
+        regressionOnly: existing.regressionOnly === true,
       });
 
       useProjectStore.getState().addTestCase(copy);

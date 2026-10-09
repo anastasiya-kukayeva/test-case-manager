@@ -2,7 +2,8 @@ import { Alert, Button, Card, Group, Stack, Text, Title, Tooltip, UnstyledButton
 import { IconArrowLeft, IconInfoCircle } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { filterTestCases, toTestCaseRows } from '@/application/testCases/filterTestCases';
+import { toTestCaseRows } from '@/application/testCases/filterTestCases';
+import { matchesPartialQuery } from '@/application/regression/regressionSearch';
 import {
   isRegressionMode,
   matchesRegressionMode,
@@ -12,7 +13,7 @@ import {
 import { nextTestCaseNumber } from '@/application/testCases/renumberTestCases';
 import { testCaseActions } from '@/application/testCases/testCaseActions';
 import { DuplicateTestCaseModal } from '@/components/testCases/DuplicateTestCaseModal';
-import { TestCaseDateFilter } from '@/components/testCases/TestCaseDateFilter';
+import { RegressionSearchField } from '@/components/testCases/RegressionSearchField';
 import {
   TestCasesListTable,
   type TestCasesListRow,
@@ -20,7 +21,7 @@ import {
 import { getTaskShortLabel } from '@/domain/utils/taskDisplay';
 import { AppRoutes, regressionBrowsePath, testCaseEditorPath } from '@/routes/paths';
 import { useProjectStore } from '@/stores/useProjectStore';
-import { useTestCaseTableStore } from '@/stores/useTestCaseTableStore';
+import { useUiStore } from '@/stores/useUiStore';
 
 function modeFromState(state: unknown): RegressionMode {
   const mode = (state as { mode?: string } | null)?.mode;
@@ -32,7 +33,7 @@ export function RegressionCasesPage() {
   const location = useLocation();
   const mode = modeFromState(location.state);
   const current = useProjectStore((state) => state.current);
-  const filters = useTestCaseTableStore((state) => state.filters);
+  const searchQuery = useUiStore((state) => state.regressionSearch);
   const [duplicateSource, setDuplicateSource] = useState<TestCasesListRow | null>(null);
 
   const allRows = useMemo(() => {
@@ -44,11 +45,24 @@ export function RegressionCasesPage() {
   }, [current, mode]);
 
   const filteredRows = useMemo(() => {
-    return filterTestCases(allRows, filters).map((row, index) => ({
-      ...row,
-      number: String(index + 1),
-    }));
-  }, [allRows, filters]);
+    const meta = current?.document.meta;
+    return allRows
+      .filter((row) =>
+        matchesPartialQuery(searchQuery, [
+          row.number,
+          row.title,
+          row.goal?.plainText,
+          row.taskName,
+          meta?.shortName,
+          meta?.application,
+          meta?.module,
+        ]),
+      )
+      .map((row, index) => ({
+        ...row,
+        number: String(index + 1),
+      }));
+  }, [allRows, current?.document.meta, searchQuery]);
 
   const openEditor = (id: string) => {
     void navigate(testCaseEditorPath(id), { state: { from: 'regression', mode } });
@@ -107,7 +121,7 @@ export function RegressionCasesPage() {
       </Text>
 
       <Card withBorder padding="md" radius="lg">
-        <TestCaseDateFilter />
+        <RegressionSearchField />
       </Card>
 
       <Card withBorder padding="md" radius="lg">
@@ -127,7 +141,7 @@ export function RegressionCasesPage() {
           onRegressionChange={(row, patch) => {
             testCaseActions.setRegressionFlags(row.id, patch);
           }}
-          emptyText="Нет кейсов для этого списка по текущим фильтрам"
+          emptyText={searchQuery.trim() ? 'Ничего не найдено' : 'Нет кейсов для этого списка'}
         />
       </Card>
 

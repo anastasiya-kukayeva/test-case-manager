@@ -270,7 +270,8 @@ export function TaskDetailPage() {
               Путь: {current.filePath ?? 'ещё не сохранён на диск'}
             </Text>
             <Text size="sm" c="dimmed">
-              Тест-кейсов в задаче: {current.document.testCases.length}
+              Тест-кейсов в задаче:{' '}
+              {current.document.testCases.filter((item) => !item.regressionOnly).length}
             </Text>
           </Stack>
         </Card>

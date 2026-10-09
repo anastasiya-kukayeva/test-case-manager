@@ -27,6 +27,9 @@ type UiStoreState = {
   /** Task ids left open under a module or on the unassigned tab. */
   regressionExpandedTasks: Partial<Record<'suite' | 'task', string[]>>;
   setRegressionExpandedTasks: (mode: 'suite' | 'task', ids: string[]) => void;
+  /** Partial-match query shared by the regression lists. */
+  regressionSearch: string;
+  setRegressionSearch: (query: string) => void;
 };
 
 export const useUiStore = create<UiStoreState>((set, get) => ({
@@ -67,4 +70,6 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
     set((state) => ({
       regressionExpandedTasks: { ...state.regressionExpandedTasks, [mode]: ids },
     })),
+  regressionSearch: '',
+  setRegressionSearch: (query) => set({ regressionSearch: query }),
 }));

@@ -96,12 +96,12 @@ export async function loadCatalogTestCaseGroups(
     }
   }
 
-  const filtered = options?.onlyRegression
-    ? groups.map((group) => ({
-        ...group,
-        testCases: group.testCases.filter((testCase) => isMarkedForRegression(testCase)),
-      }))
-    : groups;
+  const filtered = groups.map((group) => ({
+    ...group,
+    testCases: group.testCases.filter((testCase) =>
+      options?.onlyRegression ? isMarkedForRegression(testCase) : !testCase.regressionOnly,
+    ),
+  }));
 
   return filtered.filter((group) => group.testCases.length > 0);
 }

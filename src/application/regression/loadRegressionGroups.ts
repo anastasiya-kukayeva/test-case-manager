@@ -132,6 +132,27 @@ async function loadTasks(): Promise<LoadedTask[]> {
     }
   }
 
+  // Re-read the open task after the awaits so a checkbox change made while
+  // files were loading is not overwritten by an earlier snapshot.
+  const live = useProjectStore.getState().current;
+  if (live) {
+    const fresh: LoadedTask = {
+      meta: live.document.meta,
+      filePath: live.filePath,
+      testCases: live.document.testCases,
+    };
+    const index = tasks.findIndex(
+      (task) =>
+        task.meta.id === live.document.meta.id ||
+        (Boolean(live.filePath) && task.filePath === live.filePath),
+    );
+    if (index >= 0) {
+      tasks[index] = fresh;
+    } else {
+      tasks.unshift(fresh);
+    }
+  }
+
   return tasks;
 }
 

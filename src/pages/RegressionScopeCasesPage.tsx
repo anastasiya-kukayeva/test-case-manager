@@ -13,7 +13,6 @@ import {
 import { IconAlertCircle, IconArrowLeft, IconFileImport, IconFileWord, IconRefresh } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { matchesDateFilter } from '@/application/testCases/datePresets';
 import {
   isRegressionMode,
   loadRegressionCasesByModule,
@@ -24,6 +23,7 @@ import {
   type RegressionMode,
   type RegressionTaskGroup,
 } from '@/application/regression/loadRegressionGroups';
+import { regressionCaseMatches } from '@/application/regression/regressionSearch';
 import { exportActions } from '@/application/export/exportActions';
 import {
   regressionReportImportActions,
@@ -33,7 +33,7 @@ import { projectActions } from '@/application/project/projectActions';
 import { nextTestCaseNumber } from '@/application/testCases/renumberTestCases';
 import { testCaseActions } from '@/application/testCases/testCaseActions';
 import { DuplicateTestCaseModal } from '@/components/testCases/DuplicateTestCaseModal';
-import { TestCaseDateFilter } from '@/components/testCases/TestCaseDateFilter';
+import { RegressionSearchField } from '@/components/testCases/RegressionSearchField';
 import {
   TestCasesListTable,
   type TestCasesListRow,
@@ -45,7 +45,7 @@ import { regressionBrowsePath, testCaseEditorPath } from '@/routes/paths';
 import { useAppStore } from '@/stores/useAppStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
 import { useProjectStore } from '@/stores/useProjectStore';
-import { useTestCaseTableStore } from '@/stores/useTestCaseTableStore';
+import { useUiStore } from '@/stores/useUiStore';
 
 const EMPTY_GROUPS: RegressionCasesByModule = { modules: [], unassigned: [] };
 
@@ -61,13 +61,34 @@ function casesOf(tasks: RegressionTaskGroup[]): RegressionCaseItem[] {
   return tasks.flatMap((task) => task.cases);
 }
 
-function toDisplayRows(cases: RegressionCaseItem[], showSource: boolean): TestCasesListRow[] {
-  const dateFilter = useTestCaseTableStore.getState().filters.date;
+function mapRegressionCases(
+  groups: RegressionCasesByModule,
+  mapCase: (entry: RegressionCaseItem) => RegressionCaseItem | null,
+): RegressionCasesByModule {
+  const applyTasks = (tasks: RegressionTaskGroup[]) =>
+    tasks.map((task) => ({
+      ...task,
+      cases: task.cases.flatMap((entry) => {
+        const next = mapCase(entry);
+        return next ? [next] : [];
+      }),
+    }));
+  return {
+    modules: groups.modules.map((moduleGroup) => ({
+      ...moduleGroup,
+      tasks: applyTasks(moduleGroup.tasks),
+    })),
+    unassigned: applyTasks(groups.unassigned),
+  };
+}
+
+function toDisplayRows(
+  cases: RegressionCaseItem[],
+  showSource: boolean,
+  query: string,
+): TestCasesListRow[] {
   return cases
-    .filter((item) => {
-      const dateValue = dateFilter.field === 'createdAt' ? item.createdAt : item.updatedAt;
-      return matchesDateFilter(dateValue, dateFilter);
-    })
+    .filter((item) => regressionCaseMatches(item, query))
     .map((item, index) => ({
       id: item.id,
       number: String(index + 1),
@@ -102,7 +123,7 @@ export function RegressionScopeCasesPage() {
   const isDirectoryLoaded = useDirectoryStore((state) => state.isLoaded);
   const loadDirectory = useDirectoryStore((state) => state.load);
   const current = useProjectStore((state) => state.current);
-  const dateFilter = useTestCaseTableStore((state) => state.filters.date);
+  const searchQuery = useUiStore((state) => state.regressionSearch);
 
   const [groups, setGroups] = useState<RegressionCasesByModule>(EMPTY_GROUPS);
   const [loading, setLoading] = useState(true);
@@ -114,7 +135,10 @@ export function RegressionScopeCasesPage() {
   const [duplicateSuggestedNumber, setDuplicateSuggestedNumber] = useState('1');
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [leavingIds, setLeavingIds] = useState<ReadonlySet<string>>(() => new Set());
   const hasLoadedRef = useRef(false);
+  const hiddenIdsRef = useRef(new Set<string>());
+  const leaveTimersRef = useRef(new Map<string, number>());
 
   const reload = useCallback(async () => {
     if (!mode) {
@@ -130,7 +154,13 @@ export function RegressionScopeCasesPage() {
       if (!useDirectoryStore.getState().isLoaded) {
         await loadDirectory();
       }
-      setGroups(await loadRegressionCasesByModule(mode));
+      const loaded = await loadRegressionCasesByModule(mode);
+      const hidden = hiddenIdsRef.current;
+      setGroups(
+        hidden.size === 0
+          ? loaded
+          : mapRegressionCases(loaded, (entry) => (hidden.has(entry.id) ? null : entry)),
+      );
       hasLoadedRef.current = true;
     } catch (loadError) {
       setGroups(EMPTY_GROUPS);
@@ -193,8 +223,8 @@ export function RegressionScopeCasesPage() {
   }, [groups, isModule, isTask, scopeId]);
 
   const rows = useMemo(
-    () => toDisplayRows(selection.cases, selection.showSource),
-    [selection.cases, selection.showSource, dateFilter],
+    () => toDisplayRows(selection.cases, selection.showSource, searchQuery),
+    [selection.cases, selection.showSource, searchQuery],
   );
 
   const caseById = useMemo(() => {
@@ -432,47 +462,71 @@ export function RegressionScopeCasesPage() {
     if (!item || !mode) {
       return;
     }
+    const nextRegression = patch.includeInRegression ?? item.includeInRegression;
+    const nextTaskRegression = patch.includeInTaskRegression ?? item.includeInTaskRegression;
+    const stays = mode === 'task' ? nextTaskRegression : nextRegression;
+
+    setGroups((current) =>
+      mapRegressionCases(current, (entry) =>
+        entry.id === row.id
+          ? {
+              ...entry,
+              includeInRegression: nextRegression,
+              includeInTaskRegression: nextTaskRegression,
+            }
+          : entry,
+      ),
+    );
+
+    const cancelLeave = (id: string) => {
+      const timer = leaveTimersRef.current.get(id);
+      if (timer !== undefined) {
+        window.clearTimeout(timer);
+        leaveTimersRef.current.delete(id);
+      }
+      hiddenIdsRef.current.delete(id);
+      setLeavingIds((current) => {
+        if (!current.has(id)) {
+          return current;
+        }
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    };
+
+    if (!stays) {
+      hiddenIdsRef.current.add(row.id);
+      setLeavingIds((current) => new Set(current).add(row.id));
+      const timer = window.setTimeout(() => {
+        leaveTimersRef.current.delete(row.id);
+        setGroups((current) =>
+          mapRegressionCases(current, (entry) => (entry.id === row.id ? null : entry)),
+        );
+        setLeavingIds((current) => {
+          if (!current.has(row.id)) {
+            return current;
+          }
+          const next = new Set(current);
+          next.delete(row.id);
+          return next;
+        });
+      }, 200);
+      leaveTimersRef.current.set(row.id, timer);
+    }
+
     const ok = await ensureTaskOpen(item);
     if (!ok) {
+      cancelLeave(row.id);
+      await reload();
       return;
     }
     const updated = testCaseActions.setRegressionFlags(row.id, patch);
     if (!updated) {
+      cancelLeave(row.id);
+      await reload();
       return;
     }
-    const nextRegression = patch.includeInRegression ?? item.includeInRegression;
-    const nextTaskRegression = patch.includeInTaskRegression ?? item.includeInTaskRegression;
-    const stays = mode === 'task' ? nextTaskRegression : nextRegression;
-    const applyCase = (entry: RegressionCaseItem): RegressionCaseItem | null => {
-      if (entry.id !== row.id) {
-        return entry;
-      }
-      if (!stays) {
-        return null;
-      }
-      return {
-        ...entry,
-        includeInRegression: nextRegression,
-        includeInTaskRegression: nextTaskRegression,
-      };
-    };
-    const applyTasks = (tasks: RegressionTaskGroup[]) =>
-      tasks
-        .map((task) => ({
-          ...task,
-          cases: task.cases.flatMap((entry) => {
-            const next = applyCase(entry);
-            return next ? [next] : [];
-          }),
-        }))
-        .filter((task) => task.cases.length > 0);
-    setGroups((current) => ({
-      modules: current.modules.map((moduleGroup) => ({
-        ...moduleGroup,
-        tasks: applyTasks(moduleGroup.tasks),
-      })),
-      unassigned: applyTasks(current.unassigned),
-    }));
     if (item.taskFilePath) {
       await projectActions.save();
     }
@@ -585,7 +639,7 @@ export function RegressionScopeCasesPage() {
       {!loading && selection.found ? (
         <>
           <Card withBorder padding="md" radius="lg">
-            <TestCaseDateFilter />
+            <RegressionSearchField />
           </Card>
           <Card withBorder padding="md" radius="lg">
             <TestCasesListTable
@@ -598,10 +652,11 @@ export function RegressionScopeCasesPage() {
                 void changeIncludeInReport(row, includeInReport)
               }
               onRegressionChange={(row, patch) => void changeRegression(row, patch)}
+              leavingIds={leavingIds}
               openingId={openingId}
               deletingId={deletingId}
               duplicatingId={duplicatingId}
-              emptyText="Нет кейсов по текущим фильтрам"
+              emptyText={searchQuery.trim() ? 'Ничего не найдено' : 'Нет кейсов'}
             />
           </Card>
         </>

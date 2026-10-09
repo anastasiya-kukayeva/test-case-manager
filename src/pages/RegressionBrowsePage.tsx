@@ -17,7 +17,6 @@ import {
 import { IconAlertCircle, IconArrowLeft, IconRefresh } from '@tabler/icons-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { matchesDateFilter } from '@/application/testCases/datePresets';
 import {
   isRegressionMode,
   loadRegressionCasesByModule,
@@ -28,13 +27,13 @@ import {
   type RegressionMode,
   type RegressionTaskGroup,
 } from '@/application/regression/loadRegressionGroups';
-import { TestCaseDateFilter } from '@/components/testCases/TestCaseDateFilter';
+import { regressionCaseMatches } from '@/application/regression/regressionSearch';
+import { RegressionSearchField } from '@/components/testCases/RegressionSearchField';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { AppRoutes, regressionModuleCasesPath, regressionTaskCasesPath } from '@/routes/paths';
 import { useAppStore } from '@/stores/useAppStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
 import { useProjectStore } from '@/stores/useProjectStore';
-import { useTestCaseTableStore } from '@/stores/useTestCaseTableStore';
 import { useUiStore } from '@/stores/useUiStore';
 
 const MODULES_TAB = 'modules';
@@ -43,36 +42,31 @@ const UNASSIGNED_TAB = '__unassigned__';
 const EMPTY_GROUPS: RegressionCasesByModule = { modules: [], unassigned: [] };
 const EMPTY_EXPANDED: string[] = [];
 
-type DateFilter = ReturnType<typeof useTestCaseTableStore.getState>['filters']['date'];
-
 function casesOf(tasks: RegressionTaskGroup[]): RegressionCaseItem[] {
   return tasks.flatMap((task) => task.cases);
 }
 
-function visibleCaseCount(cases: RegressionCaseItem[], dateFilter: DateFilter): number {
-  return cases.filter((item) => {
-    const dateValue = dateFilter.field === 'createdAt' ? item.createdAt : item.updatedAt;
-    return matchesDateFilter(dateValue, dateFilter);
-  }).length;
+function matchingCaseCount(cases: RegressionCaseItem[], query: string): number {
+  return cases.filter((item) => regressionCaseMatches(item, query)).length;
 }
 
 function RegressionTaskLinks({
   tasks,
-  dateFilter,
+  query,
   onOpen,
 }: {
   tasks: RegressionTaskGroup[];
-  dateFilter: DateFilter;
+  query: string;
   onOpen: (task: RegressionTaskGroup) => void;
 }) {
   const visible = tasks
-    .map((task) => ({ task, count: visibleCaseCount(task.cases, dateFilter) }))
+    .map((task) => ({ task, count: matchingCaseCount(task.cases, query) }))
     .filter((item) => item.count > 0);
 
   if (visible.length === 0) {
     return (
       <Text c="dimmed" size="sm">
-        Нет задач по текущим фильтрам
+        {query.trim() ? 'Ничего не найдено' : 'Нет задач'}
       </Text>
     );
   }
@@ -119,7 +113,7 @@ export function RegressionBrowsePage() {
   const isDirectoryLoaded = useDirectoryStore((state) => state.isLoaded);
   const loadDirectory = useDirectoryStore((state) => state.load);
   const current = useProjectStore((state) => state.current);
-  const dateFilter = useTestCaseTableStore((state) => state.filters.date);
+  const searchQuery = useUiStore((state) => state.regressionSearch);
 
   const [groups, setGroups] = useState<RegressionCasesByModule>(EMPTY_GROUPS);
   const [loading, setLoading] = useState(true);
@@ -220,7 +214,10 @@ export function RegressionBrowsePage() {
   const hasCases =
     groups.modules.some((item) => casesOf(item.tasks).length > 0) ||
     casesOf(groups.unassigned).length > 0;
-  const unassignedCount = casesOf(groups.unassigned).length;
+  const unassignedCount = matchingCaseCount(casesOf(groups.unassigned), searchQuery);
+  const visibleModules = groups.modules.filter(
+    (item) => matchingCaseCount(casesOf(item.tasks), searchQuery) > 0,
+  );
 
   return (
     <Stack gap="lg">
@@ -296,12 +293,16 @@ export function RegressionBrowsePage() {
 
             <Stack gap="md" mt="md">
               <Card withBorder padding="md" radius="lg">
-                <TestCaseDateFilter />
+                <RegressionSearchField />
               </Card>
 
               <Tabs.Panel value={MODULES_TAB}>
                 {groups.modules.length === 0 ? (
                   <Alert color="gray">Нет задач с указанным модулем.</Alert>
+                ) : visibleModules.length === 0 ? (
+                  <Text c="dimmed" size="sm">
+                    Ничего не найдено
+                  </Text>
                 ) : (
                   <Accordion
                     multiple
@@ -319,20 +320,22 @@ export function RegressionBrowsePage() {
                       setRegressionExpandedModules(mode, value);
                     }}
                   >
-                    {groups.modules.map((moduleGroup) => (
+                    {visibleModules.map((moduleGroup) => (
                       <Accordion.Item key={moduleGroup.moduleName} value={moduleGroup.moduleName}>
                         <Accordion.Control>
                           <Group justify="space-between" pr="md" wrap="nowrap">
                             <Text fw={700} lineClamp={1}>
                               {moduleGroup.moduleName}
                             </Text>
-                            <Badge variant="light">{casesOf(moduleGroup.tasks).length}</Badge>
+                            <Badge variant="light">
+                              {matchingCaseCount(casesOf(moduleGroup.tasks), searchQuery)}
+                            </Badge>
                           </Group>
                         </Accordion.Control>
                         <Accordion.Panel>
                           <RegressionTaskLinks
                             tasks={moduleGroup.tasks}
-                            dateFilter={dateFilter}
+                            query={searchQuery}
                             onOpen={(task) => openTaskCases(task, moduleGroup.moduleName)}
                           />
                         </Accordion.Panel>
@@ -346,7 +349,7 @@ export function RegressionBrowsePage() {
                 <Card withBorder padding="md" radius="lg">
                   <RegressionTaskLinks
                     tasks={groups.unassigned}
-                    dateFilter={dateFilter}
+                    query={searchQuery}
                     onOpen={(task) => openTaskCases(task, null)}
                   />
                 </Card>

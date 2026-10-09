@@ -2,7 +2,6 @@ import { AppError } from '@/application/errors/AppError';
 import { notifyError, notifySuccess } from '@/application/errors/errorHandler';
 import { projectActions } from '@/application/project/projectActions';
 import type { RegressionMode } from '@/application/regression/loadRegressionGroups';
-import { renumberTestCases } from '@/application/testCases/renumberTestCases';
 import { createEmptyTestCase } from '@/domain/factories/createEntities';
 import type { TaskDocument, TestCase } from '@/domain/types';
 import type { ParsedRegressionReportCase } from '@/infrastructure/import/parseRegressionReportHtml';
@@ -100,8 +99,27 @@ function caseFromRow(row: ParsedRegressionReportCase, mode: RegressionMode): Tes
     includeInReport: true,
     includeInRegression: mode === 'suite',
     includeInTaskRegression: mode === 'task',
+    regressionOnly: true,
     testOutcome: row.outcome,
   });
+}
+
+/** Append report rows without renumbering the task's own test cases. */
+function appendRegressionOnlyCases(existing: TestCase[], created: TestCase[]): TestCase[] {
+  let next = 0;
+  for (const item of existing) {
+    const parsed = Number.parseInt(String(item.number).trim(), 10);
+    if (Number.isFinite(parsed) && parsed > next) {
+      next = parsed;
+    }
+  }
+  next += 1;
+  const imported = created.map((item) => {
+    const testCase = { ...item, number: String(next), regressionOnly: true };
+    next += 1;
+    return testCase;
+  });
+  return [...existing, ...imported];
 }
 
 function isCurrentTask(target: RegressionImportTaskRef): boolean {
@@ -128,7 +146,7 @@ async function appendToTask(
     }
     useProjectStore.getState().updateDocument({
       ...current.document,
-      testCases: renumberTestCases([...current.document.testCases, ...created]),
+      testCases: appendRegressionOnlyCases(current.document.testCases, created),
     });
     const saved = await projectActions.save({ silent: true });
     if (!saved) {
@@ -154,7 +172,7 @@ async function appendToTask(
       ...opened.document.meta,
       updatedAt: new Date().toISOString(),
     },
-    testCases: renumberTestCases([...opened.document.testCases, ...created]),
+    testCases: appendRegressionOnlyCases(opened.document.testCases, created),
   };
   await projectFileService.saveToPath(target.taskFilePath, document);
 }

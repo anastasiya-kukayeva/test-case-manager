@@ -31,7 +31,6 @@ import {
   IconUpload,
   IconX,
 } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
 import { useCallback, useRef, useState } from 'react';
 import { PhotoProvider } from 'react-photo-view';
 import {
@@ -87,20 +86,8 @@ export function ScreenshotsField({
       try {
         const nextImages = await Promise.all(files.map((file) => fileToImageAttachment(file)));
         commitImages([...images, ...nextImages]);
-        notifications.show({
-          message:
-            nextImages.length === 1
-              ? 'Скриншот добавлен'
-              : `Добавлено скриншотов: ${nextImages.length}`,
-          color: 'green',
-          autoClose: 2000,
-        });
-      } catch {
-        notifications.show({
-          title: 'Ошибка',
-          message: 'Не удалось добавить изображение',
-          color: 'red',
-        });
+      } catch (error) {
+        console.error(error);
       }
     },
     [commitImages, images],
