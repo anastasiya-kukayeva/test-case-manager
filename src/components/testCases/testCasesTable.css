@@ -4,6 +4,20 @@
   position: relative;
 }
 
+.tcm-regression-col {
+  width: 72px;
+  max-width: 84px;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.2;
+  padding-inline: 4px;
+}
+
+.tcm-regression-check {
+  --checkbox-size: 14px;
+  --checkbox-radius: 2px;
+}
+
 .tcm-resizer {
   position: absolute;
   right: 0;

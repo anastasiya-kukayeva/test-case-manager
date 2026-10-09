@@ -180,7 +180,7 @@ export const taskHierarchyActions = {
 
       const recent = useAppStore.getState().recentProjects;
       const entry = toRecent(document, targetPath);
-      const next = [entry, ...recent.filter((item) => item.filePath !== targetPath)].slice(0, 10);
+      const next = [entry, ...recent.filter((item) => item.filePath !== targetPath)];
       await persistRecent(next);
       notifySuccess(`Создана копия «${title}»`);
       return true;

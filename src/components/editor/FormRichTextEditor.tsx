@@ -1,6 +1,5 @@
 import { ActionIcon, FileButton, Group, Tooltip } from '@mantine/core';
 import {
-  IconAbc,
   IconBold,
   IconCode,
   IconFileText,
@@ -30,6 +29,7 @@ import {
   NestedListItem,
 } from '@/components/editor/nestedListItem';
 import { RichTextColorControls } from '@/components/editor/RichTextColorControls';
+import { normalizePastedHtml } from '@/components/editor/pasteFormatting';
 import { toggleFenceBlock } from '@/components/editor/toggleFenceBlock';
 import type { RichTextContent } from '@/domain/types';
 import 'react-photo-view/dist/react-photo-view.css';
@@ -114,7 +114,27 @@ function createExtensions(placeholder: string) {
     Underline,
     TextStyle,
     Color,
-    Highlight.configure({
+    Highlight.extend({
+      parseHTML() {
+        return [
+          { tag: 'mark' },
+          {
+            tag: 'span',
+            consuming: false,
+            getAttrs: (element) => {
+              if (!(element instanceof HTMLElement)) {
+                return false;
+              }
+              const background = element.style.backgroundColor.trim().toLowerCase();
+              if (!background || background === 'transparent' || background === 'inherit') {
+                return false;
+              }
+              return null;
+            },
+          },
+        ];
+      },
+    }).configure({
       multicolor: true,
       HTMLAttributes: {
         class: 'tcm-rte-highlight',
@@ -208,6 +228,7 @@ export function FormRichTextEditor({
           openImageLightbox(src);
           return true;
         },
+        transformPastedHTML: (html) => normalizePastedHtml(html),
         handlePaste: (_view, event) => {
           if (!allowImagesRef.current) {
             return false;
@@ -244,6 +265,9 @@ export function FormRichTextEditor({
           html: html === '<p></p>' ? '' : html,
           plainText: htmlToPlainText(html),
         });
+      },
+      onBlur: ({ editor: current }) => {
+        applyTypographyInEditor(current);
       },
     },
     [extensions, allowImages],
@@ -398,21 +422,6 @@ export function FormRichTextEditor({
               </Tooltip>
             </>
           ) : null}
-          <Tooltip label="Чистописание: кавычки «», тире и пробелы по правилам русского языка">
-            <ActionIcon
-              variant="default"
-              aria-label="Чистописание"
-              disabled={!editor}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                if (editor) {
-                  applyTypographyInEditor(editor);
-                }
-              }}
-            >
-              <IconAbc size={16} />
-            </ActionIcon>
-          </Tooltip>
           {allowImages ? (
             <FileButton
               accept="image/*"

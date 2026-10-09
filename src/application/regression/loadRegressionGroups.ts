@@ -31,6 +31,8 @@ export type RegressionCaseItem = {
   updatedAt: string;
   testOutcome: TestCase['testOutcome'];
   includeInReport: boolean;
+  includeInRegression: boolean;
+  includeInTaskRegression: boolean;
   taskId: string;
   taskName: string;
   taskShortLabel: string;
@@ -152,6 +154,8 @@ export async function loadRegressionCasesByModule(mode: RegressionMode): Promise
         updatedAt: testCase.updatedAt,
         testOutcome: testCase.testOutcome,
         includeInReport: testCase.includeInReport !== false,
+        includeInRegression: Boolean(testCase.includeInRegression),
+        includeInTaskRegression: Boolean(testCase.includeInTaskRegression),
         taskId: task.meta.id,
         taskName: task.meta.name,
         taskShortLabel: getTaskShortLabel(task.meta),

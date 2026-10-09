@@ -23,7 +23,6 @@ export function applyTypographyInEditor(editor: Editor): boolean {
 
   return editor
     .chain()
-    .focus()
     .command(({ tr, state }) => {
       const replacements: { from: number; to: number; text: string }[] = [];
 

@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   loadApplicationTaskGroups,
+  UNASSIGNED_APPLICATION_MODULE,
   type ApplicationGroup,
   type ApplicationTaskItem,
 } from '@/application/applications/loadApplicationTaskGroups';
@@ -30,10 +31,15 @@ import { useProjectStore } from '@/stores/useProjectStore';
 
 const UNASSIGNED_LABEL = 'Без приложения';
 
+function taskCount(group: ApplicationGroup): number {
+  return group.modules.reduce((sum, moduleGroup) => sum + moduleGroup.tasks.length, 0);
+}
+
 export function ApplicationsPage() {
   const navigate = useNavigate();
   const recentProjects = useAppStore((state) => state.recentProjects);
   const applications = useDirectoryStore((state) => state.applications);
+  const directoryModules = useDirectoryStore((state) => state.modules);
   const isDirectoryLoaded = useDirectoryStore((state) => state.isLoaded);
   const loadDirectory = useDirectoryStore((state) => state.load);
   const current = useProjectStore((state) => state.current);
@@ -44,6 +50,7 @@ export function ApplicationsPage() {
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [createOpened, setCreateOpened] = useState(false);
   const [createApplication, setCreateApplication] = useState('');
+  const [createModule, setCreateModule] = useState('');
   const reload = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -67,9 +74,11 @@ export function ApplicationsPage() {
     reload,
     recentProjects,
     applications,
+    directoryModules,
     isDirectoryLoaded,
     current?.document.meta.id,
     current?.document.meta.application,
+    current?.document.meta.module,
   ]);
 
   const openTask = async (task: ApplicationTaskItem) => {
@@ -100,8 +109,9 @@ export function ApplicationsPage() {
     }
   };
 
-  const openCreateForApplication = (applicationName: string) => {
+  const openCreateForModule = (applicationName: string, moduleName: string) => {
     setCreateApplication(applicationName === UNASSIGNED_LABEL ? '' : applicationName);
+    setCreateModule(moduleName === UNASSIGNED_APPLICATION_MODULE ? '' : moduleName);
     setCreateOpened(true);
   };
 
@@ -112,7 +122,8 @@ export function ApplicationsPage() {
           <div>
             <Title order={2}>Приложения</Title>
             <Text c="dimmed" mt="xs">
-              Задачи, сгруппированные по приложениям из справочника.
+              Задачи по приложениям. Внутри приложения — модули, клик по модулю раскрывает его
+              задачи.
             </Text>
           </div>
           <Tooltip label="Обновить">
@@ -157,52 +168,74 @@ export function ApplicationsPage() {
                     <Text fw={700} lineClamp={1}>
                       {group.applicationName}
                     </Text>
-                    <Badge variant="light">{group.tasks.length}</Badge>
+                    <Badge variant="light">{taskCount(group)}</Badge>
                   </Group>
                 </Accordion.Control>
                 <Accordion.Panel>
                   <Stack gap="sm">
-                    <Button
-                      size="xs"
-                      variant="light"
-                      leftSection={<IconPlus size={14} />}
-                      w="fit-content"
-                      onClick={() => openCreateForApplication(group.applicationName)}
-                    >
-                      Создать задачу
-                    </Button>
-
-                    {group.tasks.length === 0 ? (
+                    {group.modules.length === 0 ? (
                       <Text size="sm" c="dimmed">
                         Нет задач, привязанных к этому приложению
                       </Text>
                     ) : (
-                      <Stack gap={4}>
-                        {group.tasks.map((task) => (
-                          <UnstyledButton
-                            key={task.taskId}
-                            onClick={() => void openTask(task)}
-                            disabled={openingId === task.taskId}
-                            style={{
-                              display: 'block',
-                              width: '100%',
-                              padding: '10px 12px',
-                              borderRadius: 8,
-                              textAlign: 'left',
-                            }}
-                            className="tcm-app-task-row"
+                      <Accordion multiple variant="contained" radius="md">
+                        {group.modules.map((moduleGroup) => (
+                          <Accordion.Item
+                            key={moduleGroup.moduleName}
+                            value={moduleGroup.moduleName}
                           >
-                            <Text fw={600} size="sm">
-                              {task.taskShortLabel}
-                            </Text>
-                            {task.taskShortLabel !== task.taskName ? (
-                              <Text size="xs" c="dimmed" lineClamp={1}>
-                                {task.taskName}
-                              </Text>
-                            ) : null}
-                          </UnstyledButton>
+                            <Accordion.Control>
+                              <Group justify="space-between" pr="md" wrap="nowrap">
+                                <Text fw={600} lineClamp={1}>
+                                  {moduleGroup.moduleName}
+                                </Text>
+                                <Badge variant="light" size="sm">
+                                  {moduleGroup.tasks.length}
+                                </Badge>
+                              </Group>
+                            </Accordion.Control>
+                            <Accordion.Panel>
+                              <Stack gap="sm">
+                                <Button
+                                  size="xs"
+                                  variant="light"
+                                  leftSection={<IconPlus size={14} />}
+                                  w="fit-content"
+                                  onClick={() =>
+                                    openCreateForModule(group.applicationName, moduleGroup.moduleName)
+                                  }
+                                >
+                                  Создать задачу
+                                </Button>
+                                {moduleGroup.tasks.map((task) => (
+                                  <UnstyledButton
+                                    key={task.taskId}
+                                    onClick={() => void openTask(task)}
+                                    disabled={openingId === task.taskId}
+                                    style={{
+                                      display: 'block',
+                                      width: '100%',
+                                      padding: '10px 12px',
+                                      borderRadius: 8,
+                                      textAlign: 'left',
+                                    }}
+                                    className="tcm-app-task-row"
+                                  >
+                                    <Text fw={600} size="sm">
+                                      {task.taskShortLabel}
+                                    </Text>
+                                    {task.taskShortLabel !== task.taskName ? (
+                                      <Text size="xs" c="dimmed" lineClamp={1}>
+                                        {task.taskName}
+                                      </Text>
+                                    ) : null}
+                                  </UnstyledButton>
+                                ))}
+                              </Stack>
+                            </Accordion.Panel>
+                          </Accordion.Item>
                         ))}
-                      </Stack>
+                      </Accordion>
                     )}
                   </Stack>
                 </Accordion.Panel>
@@ -215,9 +248,11 @@ export function ApplicationsPage() {
       <CreateProjectModal
         opened={createOpened}
         initialApplication={createApplication}
+        initialModule={createModule}
         onClose={() => {
           setCreateOpened(false);
           setCreateApplication('');
+          setCreateModule('');
         }}
         onCreated={() => {
           void reload();

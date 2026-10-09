@@ -7,6 +7,7 @@ import {
   HeadingLevel,
   ImageRun,
   InternalHyperlink,
+  ShadingType,
   LeaderType,
   Packer,
   PageBreak,
@@ -25,8 +26,8 @@ import { isImageAttachment } from '@/domain/types/attachment';
 import {
   decodeDataUrlImage,
   htmlToExportBlocks,
-  htmlToPlainParagraphs,
   listDepthFromExportLine,
+  type ExportTextRun,
   scaleImageToWidth,
 } from '@/infrastructure/export/exportUtils';
 import { inlineVerificationAttachments } from '@/application/testCases/testCaseFormMapper';
@@ -208,6 +209,47 @@ function labelParagraph(text: string): Paragraph {
   });
 }
 
+function styledRun(piece: ExportTextRun): TextRun {
+  return run(piece.text || ' ', {
+    bold: piece.bold || undefined,
+    italics: piece.italics || undefined,
+    underline: piece.underline ? {} : undefined,
+    color: piece.color,
+    shading: piece.highlight
+      ? { type: ShadingType.CLEAR, fill: piece.highlight }
+      : undefined,
+  });
+}
+
+function trimLeadingRuns(runs: ExportTextRun[]): ExportTextRun[] {
+  let skipping = true;
+  const next: ExportTextRun[] = [];
+  for (const piece of runs) {
+    let text = piece.text;
+    if (skipping) {
+      text = text.trimStart();
+      if (text.length > 0) {
+        skipping = false;
+      }
+    }
+    if (text) {
+      next.push({ ...piece, text });
+    }
+  }
+  return next.length > 0 ? next : [{ text: ' ' }];
+}
+
+function paragraphFromRuns(text: string, runs: ExportTextRun[]): Paragraph {
+  const indentLeft = listLineIndentLeft(text);
+  const visible = indentLeft !== undefined ? trimLeadingRuns(runs) : runs;
+  return new Paragraph({
+    alignment: AlignmentType.BOTH,
+    spacing: { after: 60 },
+    indent: indentLeft !== undefined ? { left: indentLeft } : undefined,
+    children: (visible.length > 0 ? visible : [{ text: text || ' ' }]).map((piece) => styledRun(piece)),
+  });
+}
+
 function bodyLines(text: string, options?: { indent?: boolean; indentLeft?: number }): Paragraph[] {
   const lines = text
     .split(/\r?\n/)
@@ -232,7 +274,7 @@ function bodyLines(text: string, options?: { indent?: boolean; indentLeft?: numb
   });
 }
 
-/** Indent nested list lines exported as "  • item" / "    ○ item" / "▪ item". */
+/** Indent nested list lines exported as "  • item" / "    ▪ item" / "▴ item". */
 function listLineIndentLeft(text: string): number | undefined {
   const depth = listDepthFromExportLine(text);
   if (depth === undefined) {
@@ -248,8 +290,12 @@ function fromRichText(content: RichTextContent | undefined): Paragraph[] {
   }
   const html = content.html?.trim();
   if (html) {
-    const parts = htmlToPlainParagraphs(html);
-    return parts.flatMap((part) => bodyLines(part));
+    const parts = htmlToExportBlocks(html).flatMap((block) =>
+      block.type === 'text' ? [paragraphFromRuns(block.text, block.runs)] : [],
+    );
+    if (parts.length > 0) {
+      return parts;
+    }
   }
   return bodyLines(content.plainText || '');
 }
@@ -276,7 +322,7 @@ async function fromRichContent(
   const out: FileChild[] = [];
   for (const block of blocks) {
     if (block.type === 'text') {
-      out.push(...bodyLines(block.text));
+      out.push(paragraphFromRuns(block.text, block.runs));
       continue;
     }
 

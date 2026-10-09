@@ -1,22 +1,16 @@
-import { Button, Group, Stack, Text, Textarea, type TextareaProps } from '@mantine/core';
-import type { ChangeEvent } from 'react';
+import { Textarea, type TextareaProps } from '@mantine/core';
+import type { ChangeEvent, FocusEvent } from 'react';
 import { applyRussianTypography } from '@/application/text/russianTypography';
 
 type ProseTextareaProps = TextareaProps;
 
-/** Textarea with a Russian typography action in the label row. */
-export function ProseTextarea({
-  label,
-  description,
-  value,
-  onChange,
-  ...rest
-}: ProseTextareaProps) {
-  const text = typeof value === 'string' ? value : '';
-
-  const apply = () => {
-    const next = applyRussianTypography(text);
-    if (next === text || !onChange) {
+/** Textarea that applies Russian typography when the field is left. */
+export function ProseTextarea({ value, onChange, onBlur, ...rest }: ProseTextareaProps) {
+  const handleBlur = (event: FocusEvent<HTMLTextAreaElement>) => {
+    onBlur?.(event);
+    const current = event.currentTarget?.value ?? event.target?.value ?? '';
+    const next = applyRussianTypography(current);
+    if (next === current || !onChange) {
       return;
     }
     onChange({
@@ -26,31 +20,13 @@ export function ProseTextarea({
   };
 
   return (
-    <Stack gap={6}>
-      <Group justify="space-between" align="flex-end" wrap="nowrap" gap="sm">
-        <div style={{ minWidth: 0 }}>
-          {label ? (
-            <Text component="div" size="sm" fw={500}>
-              {label}
-            </Text>
-          ) : null}
-          {description ? (
-            <Text component="div" size="xs" c="dimmed">
-              {description}
-            </Text>
-          ) : null}
-        </div>
-        <Button
-          type="button"
-          size="compact-xs"
-          variant="light"
-          disabled={!text.trim()}
-          onClick={apply}
-        >
-          Чистописание
-        </Button>
-      </Group>
-      <Textarea lang="ru" spellCheck value={value} onChange={onChange} {...rest} />
-    </Stack>
+    <Textarea
+      {...rest}
+      lang="ru"
+      spellCheck
+      value={value}
+      onChange={onChange}
+      onBlur={handleBlur}
+    />
   );
 }

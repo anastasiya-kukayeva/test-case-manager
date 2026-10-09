@@ -52,6 +52,8 @@ export type RegressionReportCase = {
 export type RegressionReportHeader = {
   /** Module the report is exported from. Empty when the task has no module. */
   moduleName: string;
+  /** Short task name used in the suggested file name. Several names are joined when the report covers more than one task. */
+  taskShortName: string;
   conductedAt?: Date;
   /** Default author from the directory. */
   authorName: string;
@@ -75,6 +77,12 @@ function run(text: string, options: { bold?: boolean; size?: number; color?: str
 function formatConductedAt(date: Date): string {
   const month = MONTHS[date.getMonth()] ?? '';
   return `${month} ${date.getFullYear()}`;
+}
+
+/** Suggested file name. A colon is not allowed in a Windows file name, so the title uses a dash. */
+export function regressionReportFileName(taskShortName: string, conductedAt = new Date()): string {
+  const task = taskShortName.trim() || 'Без названия';
+  return `Регрессионный отчет - ${task} за ${formatConductedAt(conductedAt)}`;
 }
 
 function projectLine(moduleName: string): string {

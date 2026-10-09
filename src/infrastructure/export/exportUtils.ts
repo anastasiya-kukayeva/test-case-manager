@@ -3,15 +3,15 @@ function bulletMarker(depth: number): string {
     return '•';
   }
   if (depth === 1) {
-    return '○';
-  }
-  if (depth === 2) {
     return '▪';
   }
-  if (depth === 3) {
-    return '▫';
+  if (depth === 2) {
+    return '▴';
   }
-  return '▸';
+  if (depth === 3) {
+    return '◦';
+  }
+  return '◆';
 }
 
 function toAlphaIndex(index: number): string {
@@ -82,57 +82,177 @@ function listStartIndex(list: HTMLElement): number {
   return Number.isFinite(value) && value > 0 ? value : 1;
 }
 
-function directListItemText(li: HTMLElement): string {
-  const parts: string[] = [];
-  for (const child of Array.from(li.childNodes)) {
-    if (child.nodeType === Node.TEXT_NODE) {
-      parts.push(child.textContent ?? '');
-      continue;
-    }
-    if (!(child instanceof HTMLElement)) {
-      continue;
-    }
-    const tag = child.tagName.toLowerCase();
-    if (tag === 'ul' || tag === 'ol' || tag === 'img') {
-      continue;
-    }
-    parts.push(child.textContent ?? '');
-  }
-  return parts.join(' ').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+export type ExportTextStyle = {
+  bold?: boolean;
+  italics?: boolean;
+  underline?: boolean;
+  /** Font color, RRGGBB without a hash. */
+  color?: string;
+  /** Background color, RRGGBB without a hash. */
+  highlight?: string;
+};
+
+export type ExportTextRun = {
+  text: string;
+} & ExportTextStyle;
+
+function sameExportStyle(left: ExportTextStyle, right: ExportTextStyle): boolean {
+  return (
+    Boolean(left.bold) === Boolean(right.bold) &&
+    Boolean(left.italics) === Boolean(right.italics) &&
+    Boolean(left.underline) === Boolean(right.underline) &&
+    (left.color ?? '') === (right.color ?? '') &&
+    (left.highlight ?? '') === (right.highlight ?? '')
+  );
 }
 
-function listItemImageSources(li: HTMLElement): Array<{ dataUrl: string; alt?: string }> {
-  const images: Array<{ dataUrl: string; alt?: string }> = [];
-  const visit = (node: Node) => {
-    if (!(node instanceof HTMLElement)) {
-      return;
-    }
-    const tag = node.tagName.toLowerCase();
-    if (tag === 'ul' || tag === 'ol') {
-      return;
-    }
-    if (tag === 'img') {
-      const src = node.getAttribute('src') || '';
-      if (src.startsWith('data:image')) {
-        images.push({ dataUrl: src, alt: node.getAttribute('alt') || undefined });
-      }
-      return;
-    }
-    for (const child of Array.from(node.childNodes)) {
-      visit(child);
-    }
-  };
-  for (const child of Array.from(li.childNodes)) {
-    visit(child);
+function pushExportRun(runs: ExportTextRun[], text: string, style: ExportTextStyle) {
+  if (!text) {
+    return;
   }
-  return images;
+  const previous = runs[runs.length - 1];
+  if (previous && sameExportStyle(previous, style)) {
+    previous.text += text;
+    return;
+  }
+  runs.push({ text, ...style });
+}
+
+/** CSS color to Word hex (RRGGBB). Named colors used by Word highlight are included. */
+export function cssColorToHex(value: string | null | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const raw = value.trim().toLowerCase();
+  if (!raw || raw === 'inherit' || raw === 'transparent' || raw === 'currentcolor') {
+    return undefined;
+  }
+  if (raw.startsWith('#')) {
+    const hex = raw.slice(1);
+    if (/^[0-9a-f]{3}$/.test(hex)) {
+      return hex
+        .split('')
+        .map((char) => char + char)
+        .join('')
+        .toUpperCase();
+    }
+    if (/^[0-9a-f]{6}$/.test(hex)) {
+      return hex.toUpperCase();
+    }
+    return undefined;
+  }
+  const rgb = raw.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (rgb) {
+    return [rgb[1], rgb[2], rgb[3]]
+      .map((part) => Number(part).toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase();
+  }
+  const named: Record<string, string> = {
+    black: '000000',
+    white: 'FFFFFF',
+    red: 'FF0000',
+    green: '00FF00',
+    blue: '0000FF',
+    yellow: 'FFFF00',
+    cyan: '00FFFF',
+    magenta: 'FF00FF',
+    orange: 'FFA500',
+    gray: '808080',
+    grey: '808080',
+    darkgray: 'A9A9A9',
+    darkgrey: 'A9A9A9',
+    lightgray: 'D3D3D3',
+    lightgrey: 'D3D3D3',
+    darkblue: '00008B',
+    darkcyan: '008B8B',
+    darkgreen: '006400',
+    darkmagenta: '8B008B',
+    darkred: '8B0000',
+    darkyellow: 'B8860B',
+  };
+  return named[raw];
+}
+
+function styleDecl(element: HTMLElement, name: string): string {
+  const raw = element.getAttribute('style') ?? '';
+  const match = raw.match(new RegExp(`(?:^|;)\\s*${name}\\s*:\\s*([^;]+)`, 'i'));
+  return match?.[1]?.trim() ?? '';
+}
+
+function withElementStyle(element: HTMLElement, parent: ExportTextStyle): ExportTextStyle {
+  const next: ExportTextStyle = { ...parent };
+  const tag = element.tagName.toLowerCase();
+  if (tag === 'strong' || tag === 'b') {
+    next.bold = true;
+  }
+  if (tag === 'em' || tag === 'i') {
+    next.italics = true;
+  }
+  if (tag === 'u') {
+    next.underline = true;
+  }
+
+  const weight = (element.style.fontWeight || styleDecl(element, 'font-weight')).trim();
+  if (/^(bold(er)?|[5-9]\d{2,})$/.test(weight)) {
+    next.bold = true;
+  } else if (weight === 'normal' || weight === '400') {
+    delete next.bold;
+  }
+
+  const fontStyle = (element.style.fontStyle || styleDecl(element, 'font-style')).trim();
+  if (fontStyle === 'italic' || fontStyle === 'oblique') {
+    next.italics = true;
+  } else if (fontStyle === 'normal') {
+    delete next.italics;
+  }
+
+  const decoration = `${element.style.textDecorationLine} ${element.style.textDecoration} ${styleDecl(element, 'text-decoration-line')} ${styleDecl(element, 'text-decoration')}`;
+  if (decoration.includes('underline')) {
+    next.underline = true;
+  }
+
+  const color = cssColorToHex(
+    element.style.color || styleDecl(element, 'color') || (tag === 'font' ? element.getAttribute('color') : ''),
+  );
+  if (color) {
+    next.color = color;
+  }
+
+  const highlight = cssColorToHex(
+    element.style.backgroundColor ||
+      styleDecl(element, 'background-color') ||
+      element.getAttribute('data-color') ||
+      '',
+  );
+  if (highlight && (tag === 'mark' || styleDecl(element, 'background-color') || element.style.backgroundColor)) {
+    next.highlight = highlight;
+  }
+  return next;
+}
+
+function normalizeExportRuns(runs: ExportTextRun[], preserveLeadingIndent: boolean): ExportTextRun[] {
+  const cleaned = runs
+    .map((run) => ({
+      ...run,
+      text: run.text.replace(/\u00a0/g, ' ').replace(/[ \t\f\v]+/g, ' '),
+    }))
+    .filter((run) => run.text.length > 0);
+  if (!preserveLeadingIndent && cleaned[0]) {
+    cleaned[0] = { ...cleaned[0], text: cleaned[0].text.trimStart() };
+  }
+  const last = cleaned[cleaned.length - 1];
+  if (last) {
+    cleaned[cleaned.length - 1] = { ...last, text: last.text.trimEnd() };
+  }
+  return cleaned.filter((run) => run.text.length > 0);
 }
 
 function walkExportList(
   list: HTMLElement,
   depth: number,
   ordered: boolean,
-  emitText: (text: string, preserveLeadingIndent: boolean) => void,
+  emitText: (runs: ExportTextRun[], preserveLeadingIndent: boolean) => void,
   emitImage?: (dataUrl: string, alt?: string) => void,
 ) {
   let index = ordered ? listStartIndex(list) : 1;
@@ -142,135 +262,81 @@ function walkExportList(
       continue;
     }
     const indent = '  '.repeat(Math.max(0, depth));
-    const text = directListItemText(child);
     const marker = ordered ? formatOrderedMarker(index, depth, typeAttr) : bulletMarker(depth);
     if (ordered) {
       index += 1;
     }
-    emitText(text ? `${indent}${marker} ${text}` : `${indent}${marker}`, true);
+    const contentRuns: ExportTextRun[] = [];
+    const images: Array<{ dataUrl: string; alt?: string }> = [];
+    const nested: HTMLElement[] = [];
+    for (const node of Array.from(child.childNodes)) {
+      collectInline(node, {}, contentRuns, nested, images);
+    }
+    emitText([{ text: `${indent}${marker} ` }, ...contentRuns], true);
     if (emitImage) {
-      for (const image of listItemImageSources(child)) {
+      for (const image of images) {
         emitImage(image.dataUrl, image.alt);
       }
     }
-    for (const nested of Array.from(child.children)) {
-      if (!(nested instanceof HTMLElement)) {
-        continue;
-      }
-      const nestedTag = nested.tagName.toLowerCase();
+    for (const nestedList of nested) {
+      const nestedTag = nestedList.tagName.toLowerCase();
       if (nestedTag === 'ul') {
-        walkExportList(nested, depth + 1, false, emitText, emitImage);
+        walkExportList(nestedList, depth + 1, false, emitText, emitImage);
       } else if (nestedTag === 'ol') {
-        walkExportList(nested, depth + 1, true, emitText, emitImage);
+        walkExportList(nestedList, depth + 1, true, emitText, emitImage);
       }
     }
   }
 }
 
-export function htmlToPlainParagraphs(html: string): string[] {
-  if (!html.trim()) {
-    return [];
+function collectInline(
+  node: Node,
+  style: ExportTextStyle,
+  runs: ExportTextRun[],
+  nestedLists: HTMLElement[],
+  images: Array<{ dataUrl: string; alt?: string }>,
+) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    pushExportRun(runs, node.textContent ?? '', style);
+    return;
   }
-
-  const temporary = document.createElement('div');
-  temporary.innerHTML = html;
-
-  const blocks: string[] = [];
-  const pushText = (text: string, options?: { preserveLeadingIndent?: boolean }) => {
-    const withSpaces = text.replace(/\u00a0/g, ' ');
-    if (options?.preserveLeadingIndent) {
-      const leading = withSpaces.match(/^\s*/)?.[0] ?? '';
-      const rest = withSpaces.slice(leading.length).replace(/\s+/g, ' ').trim();
-      if (rest) {
-        blocks.push(`${leading}${rest}`);
-      }
-      return;
-    }
-    const normalized = withSpaces.replace(/\s+/g, ' ').trim();
-    if (normalized) {
-      blocks.push(normalized);
-    }
-  };
-
-  const walkList = (list: HTMLElement, depth: number, ordered: boolean) => {
-    walkExportList(list, depth, ordered, (text, preserveLeadingIndent) => {
-      pushText(text, { preserveLeadingIndent });
-    });
-  };
-
-  const walk = (node: Node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      pushText(node.textContent ?? '');
-      return;
-    }
-
-    if (!(node instanceof HTMLElement)) {
-      return;
-    }
-
-    const tag = node.tagName.toLowerCase();
-    if (tag === 'br') {
-      blocks.push('');
-      return;
-    }
-
-    if (tag === 'pre') {
-      const text = node.textContent ?? '';
-      for (const line of text.split(/\r?\n/)) {
-        blocks.push(line);
-      }
-      return;
-    }
-
-    if (tag === 'ol') {
-      walkList(node, 0, true);
-      return;
-    }
-
-    if (tag === 'ul') {
-      walkList(node, 0, false);
-      return;
-    }
-
-    if (tag === 'li') {
-      pushText(`• ${directListItemText(node)}`);
-      return;
-    }
-
-    if (['p', 'div', 'h1', 'h2', 'h3', 'h4', 'blockquote'].includes(tag)) {
-      if (node.querySelector('ol, ul, br')) {
-        for (const child of Array.from(node.childNodes)) {
-          walk(child);
-        }
-        return;
-      }
-      pushText(node.textContent ?? '');
-      return;
-    }
-
-    for (const child of Array.from(node.childNodes)) {
-      walk(child);
-    }
-  };
-
-  for (const child of Array.from(temporary.childNodes)) {
-    walk(child);
+  if (!(node instanceof HTMLElement)) {
+    return;
   }
-
-  if (blocks.length === 0) {
-    pushText(temporary.textContent ?? '');
+  const tag = node.tagName.toLowerCase();
+  if (tag === 'ul' || tag === 'ol') {
+    nestedLists.push(node);
+    return;
   }
-
-  return blocks;
+  if (tag === 'img') {
+    const src = node.getAttribute('src') || '';
+    if (src.startsWith('data:image')) {
+      images.push({ dataUrl: src, alt: node.getAttribute('alt') || undefined });
+    }
+    return;
+  }
+  if (tag === 'br') {
+    pushExportRun(runs, ' ', style);
+    return;
+  }
+  if (tag === 'pre') {
+    return;
+  }
+  const next = withElementStyle(node, style);
+  for (const child of Array.from(node.childNodes)) {
+    collectInline(child, next, runs, nestedLists, images);
+  }
 }
 
 export type RichExportBlock =
-  | { type: 'text'; text: string }
+  | { type: 'text'; text: string; runs: ExportTextRun[] }
   | { type: 'image'; dataUrl: string; alt?: string }
   | { type: 'code'; text: string; language?: string }
   | { type: 'log'; text: string };
 
-/** Walk rich HTML preserving order of text, screenshots, code and logs. */
+const BLOCK_TAGS = new Set(['p', 'div', 'h1', 'h2', 'h3', 'h4', 'blockquote', 'li']);
+
+/** Walk rich HTML preserving order of formatted text, screenshots, code and logs. */
 export function htmlToExportBlocks(html: string): RichExportBlock[] {
   if (!html.trim()) {
     return [];
@@ -280,20 +346,33 @@ export function htmlToExportBlocks(html: string): RichExportBlock[] {
   temporary.innerHTML = html;
   const blocks: RichExportBlock[] = [];
 
-  const pushText = (text: string, options?: { preserveLeadingIndent?: boolean }) => {
-    const withSpaces = text.replace(/\u00a0/g, ' ');
-    if (options?.preserveLeadingIndent) {
-      const leading = withSpaces.match(/^\s*/)?.[0] ?? '';
-      const rest = withSpaces.slice(leading.length).replace(/\s+/g, ' ').trim();
-      if (rest) {
-        blocks.push({ type: 'text', text: `${leading}${rest}` });
-      }
+  const pushRuns = (runs: ExportTextRun[], preserveLeadingIndent = false) => {
+    const normalized = normalizeExportRuns(runs, preserveLeadingIndent);
+    const text = normalized.map((run) => run.text).join('');
+    if (!text.trim()) {
       return;
     }
-    const normalized = withSpaces.replace(/\s+/g, ' ').trim();
-    if (normalized) {
-      blocks.push({ type: 'text', text: normalized });
+    blocks.push({ type: 'text', text, runs: normalized });
+  };
+
+  const pushPre = (node: HTMLElement) => {
+    const code = node.querySelector('code');
+    const isLog =
+      node.classList.contains('tcm-log-block') ||
+      node.getAttribute('data-type') === 'log' ||
+      Boolean(code?.classList.contains('language-log'));
+    const text = (code?.textContent ?? node.textContent ?? '').replace(/\u00a0/g, ' ');
+    if (isLog) {
+      blocks.push({ type: 'log', text });
+      return;
     }
+    const className = code?.className || '';
+    const languageMatch = className.match(/language-([a-z0-9_+-]+)/i);
+    blocks.push({
+      type: 'code',
+      text,
+      language: languageMatch?.[1],
+    });
   };
 
   const walkList = (list: HTMLElement, depth: number, ordered: boolean) => {
@@ -301,8 +380,8 @@ export function htmlToExportBlocks(html: string): RichExportBlock[] {
       list,
       depth,
       ordered,
-      (text, preserveLeadingIndent) => {
-        pushText(text, { preserveLeadingIndent });
+      (runs, preserveLeadingIndent) => {
+        pushRuns(runs, preserveLeadingIndent);
       },
       (dataUrl, alt) => {
         blocks.push({ type: 'image', dataUrl, alt });
@@ -310,16 +389,71 @@ export function htmlToExportBlocks(html: string): RichExportBlock[] {
     );
   };
 
+  const consumeInlineBlock = (element: HTMLElement) => {
+    let runs: ExportTextRun[] = [];
+    const flush = () => {
+      pushRuns(runs);
+      runs = [];
+    };
+    const visit = (node: Node, style: ExportTextStyle) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        pushExportRun(runs, node.textContent ?? '', style);
+        return;
+      }
+      if (!(node instanceof HTMLElement)) {
+        return;
+      }
+      const tag = node.tagName.toLowerCase();
+      if (tag === 'br') {
+        flush();
+        return;
+      }
+      if (tag === 'ul') {
+        flush();
+        walkList(node, 0, false);
+        return;
+      }
+      if (tag === 'ol') {
+        flush();
+        walkList(node, 0, true);
+        return;
+      }
+      if (tag === 'img') {
+        flush();
+        const src = node.getAttribute('src') || '';
+        if (src.startsWith('data:image')) {
+          blocks.push({
+            type: 'image',
+            dataUrl: src,
+            alt: node.getAttribute('alt') || undefined,
+          });
+        }
+        return;
+      }
+      if (tag === 'pre') {
+        flush();
+        pushPre(node);
+        return;
+      }
+      const next = withElementStyle(node, style);
+      for (const child of Array.from(node.childNodes)) {
+        visit(child, next);
+      }
+    };
+    for (const child of Array.from(element.childNodes)) {
+      visit(child, withElementStyle(element, {}));
+    }
+    flush();
+  };
+
   const walk = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
-      pushText(node.textContent ?? '');
+      pushRuns([{ text: node.textContent ?? '' }]);
       return;
     }
-
     if (!(node instanceof HTMLElement)) {
       return;
     }
-
     const tag = node.tagName.toLowerCase();
     if (tag === 'img') {
       const src = node.getAttribute('src') || '';
@@ -332,53 +466,33 @@ export function htmlToExportBlocks(html: string): RichExportBlock[] {
       }
       return;
     }
-
-    if (tag === 'br') {
-      return;
-    }
-
     if (tag === 'pre') {
-      const code = node.querySelector('code');
-      const isLog =
-        node.classList.contains('tcm-log-block') ||
-        node.getAttribute('data-type') === 'log' ||
-        Boolean(code?.classList.contains('language-log'));
-      const text = (code?.textContent ?? node.textContent ?? '').replace(/\u00a0/g, ' ');
-      if (isLog) {
-        blocks.push({ type: 'log', text });
-      } else {
-        const className = code?.className || '';
-        const languageMatch = className.match(/language-([a-z0-9_+-]+)/i);
-        blocks.push({
-          type: 'code',
-          text,
-          language: languageMatch?.[1],
-        });
-      }
+      pushPre(node);
       return;
     }
-
     if (tag === 'ol') {
       walkList(node, 0, true);
       return;
     }
-
     if (tag === 'ul') {
       walkList(node, 0, false);
       return;
     }
-
-    if (['p', 'div', 'h1', 'h2', 'h3', 'h4', 'blockquote', 'li'].includes(tag)) {
-      if (node.querySelector('img, ol, ul, br, pre')) {
+    if (BLOCK_TAGS.has(tag)) {
+      const hasNestedBlock = Boolean(node.querySelector('p, div, h1, h2, h3, h4, blockquote, ul, ol, pre'));
+      if (hasNestedBlock && tag !== 'li') {
         for (const child of Array.from(node.childNodes)) {
           walk(child);
         }
         return;
       }
-      pushText(node.textContent ?? '');
+      if (tag === 'li') {
+        walkList(wrapLoneListItem(node), 0, false);
+        return;
+      }
+      consumeInlineBlock(node);
       return;
     }
-
     for (const child of Array.from(node.childNodes)) {
       walk(child);
     }
@@ -388,7 +502,32 @@ export function htmlToExportBlocks(html: string): RichExportBlock[] {
     walk(child);
   }
 
+  if (blocks.length === 0 && temporary.textContent?.trim()) {
+    pushRuns([{ text: temporary.textContent }]);
+  }
+
   return mergeAdjacentFenceBlocks(blocks);
+}
+
+function wrapLoneListItem(item: HTMLElement): HTMLElement {
+  const list = document.createElement('ul');
+  list.append(item.cloneNode(true));
+  return list;
+}
+
+/** Plain lines derived from the formatted export blocks. */
+export function htmlToPlainParagraphs(html: string): string[] {
+  const lines: string[] = [];
+  for (const block of htmlToExportBlocks(html)) {
+    if (block.type === 'text') {
+      lines.push(block.text);
+      continue;
+    }
+    if (block.type === 'code' || block.type === 'log') {
+      lines.push(...block.text.split(/\r?\n/));
+    }
+  }
+  return lines;
 }
 
 function isFenceBlock(
@@ -501,7 +640,7 @@ export function uint8ArrayToBase64(bytes: Uint8Array): string {
  */
 export function listDepthFromExportLine(text: string): number | undefined {
   const match = text.match(
-    /^(\s*)(?:[•○▪▫▸]|(?:\d+|[a-z]{1,4}|[ivxlcdm]{1,8})\.)(?:\s|$)/i,
+    /^(\s*)(?:[•▪▴◦◆]|(?:\d+|[a-z]{1,4}|[ivxlcdm]{1,8})\.)(?:\s|$)/i,
   );
   if (!match) {
     return undefined;
@@ -509,13 +648,13 @@ export function listDepthFromExportLine(text: string): number | undefined {
   const spaces = match[1].replace(/\t/g, '  ').length;
   let depth = Math.min(4, Math.floor(spaces / 2));
   const marker = text.slice(match[1].length);
-  if (marker.startsWith('○')) {
+  if (marker.startsWith('▪')) {
     depth = Math.max(depth, 1);
-  } else if (marker.startsWith('▪')) {
+  } else if (marker.startsWith('▴')) {
     depth = Math.max(depth, 2);
-  } else if (marker.startsWith('▫')) {
+  } else if (marker.startsWith('◦')) {
     depth = Math.max(depth, 3);
-  } else if (marker.startsWith('▸')) {
+  } else if (marker.startsWith('◆')) {
     depth = Math.max(depth, 4);
   }
   return depth;

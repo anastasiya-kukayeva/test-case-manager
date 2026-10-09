@@ -30,6 +30,12 @@ export function AppLayout() {
         collapsed: { desktop: !sidebarOpened, mobile: !sidebarOpened },
       }}
       padding="md"
+      styles={{
+        main: {
+          height: '100dvh',
+          overflowY: 'auto',
+        },
+      }}
     >
       <AppShell.Header>
         <AppHeader onToggleSidebar={toggleSidebar} />

@@ -271,7 +271,7 @@ export function TestCaseEditorForm({
             <EditorSection
               value="regression"
               title="7. Регресс"
-              description="Отметка для будущей выгрузки. Сейчас ни на что не влияет"
+              description="Те же отметки, что в колонках «Регресс общий» и «Регресс задачи» в списке регресса"
             >
               <Group gap="xl" align="flex-start" wrap="wrap">
                 <Controller

@@ -5,22 +5,77 @@ import { useAppStore } from '@/stores/useAppStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 
+export const UNASSIGNED_APPLICATION_MODULE = 'Без модуля';
+
 export type ApplicationTaskItem = {
   taskId: string;
   taskName: string;
   taskShortLabel: string;
   taskFilePath: string | null;
   application: string;
+  /** Module name from the task. Empty when the task has no module. */
+  module: string;
+};
+
+export type ApplicationModuleGroup = {
+  moduleName: string;
+  tasks: ApplicationTaskItem[];
 };
 
 export type ApplicationGroup = {
   applicationId: string | null;
   applicationName: string;
-  tasks: ApplicationTaskItem[];
+  modules: ApplicationModuleGroup[];
 };
 
+function sameName(left: string, right: string): boolean {
+  return left.toLocaleLowerCase('ru') === right.toLocaleLowerCase('ru');
+}
+
+function orderModuleNames(preferred: string[], found: string[]): string[] {
+  const result: string[] = [];
+  const used = new Set<string>();
+  const take = (name: string) => {
+    const key = name.toLocaleLowerCase('ru');
+    if (used.has(key)) {
+      return;
+    }
+    used.add(key);
+    result.push(name);
+  };
+
+  for (const name of preferred) {
+    const hit = found.find((item) => sameName(item, name));
+    if (hit) {
+      take(hit);
+    }
+  }
+  for (const name of found) {
+    take(name);
+  }
+  return result;
+}
+
+function groupTasksByModule(tasks: ApplicationTaskItem[]): ApplicationModuleGroup[] {
+  const preferred = useDirectoryStore.getState().modules.map((item) => item.name);
+  const named = tasks.filter((task) => task.module);
+  const unassigned = tasks.filter((task) => !task.module);
+  const groups = orderModuleNames(
+    preferred,
+    named.map((task) => task.module),
+  ).map((moduleName) => ({
+    moduleName,
+    tasks: named.filter((task) => sameName(task.module, moduleName)),
+  }));
+
+  if (unassigned.length > 0) {
+    groups.push({ moduleName: UNASSIGNED_APPLICATION_MODULE, tasks: unassigned });
+  }
+  return groups;
+}
+
 function toTaskItem(
-  meta: { id: string; name: string; shortName?: string; application?: string },
+  meta: { id: string; name: string; shortName?: string; application?: string; module?: string },
   filePath: string | null,
 ): ApplicationTaskItem {
   return {
@@ -29,6 +84,7 @@ function toTaskItem(
     taskShortLabel: getTaskShortLabel(meta),
     taskFilePath: filePath,
     application: meta.application?.trim() || '',
+    module: meta.module?.trim() || '',
   };
 }
 
@@ -77,9 +133,8 @@ export async function loadApplicationTaskGroups(): Promise<ApplicationGroup[]> {
   const groups: ApplicationGroup[] = directoryApps.map((app) => ({
     applicationId: app.id,
     applicationName: app.name,
-    tasks: tasks.filter(
-      (task) =>
-        task.application.toLocaleLowerCase('ru') === app.name.toLocaleLowerCase('ru'),
+    modules: groupTasksByModule(
+      tasks.filter((task) => sameName(task.application, app.name)),
     ),
   }));
 
@@ -102,7 +157,7 @@ export async function loadApplicationTaskGroups(): Promise<ApplicationGroup[]> {
       groups.push({
         applicationId: null,
         applicationName: name,
-        tasks: appTasks,
+        modules: groupTasksByModule(appTasks),
       });
     }
   }
@@ -112,7 +167,7 @@ export async function loadApplicationTaskGroups(): Promise<ApplicationGroup[]> {
     groups.push({
       applicationId: null,
       applicationName: 'Без приложения',
-      tasks: unassigned,
+      modules: groupTasksByModule(unassigned),
     });
   }
 

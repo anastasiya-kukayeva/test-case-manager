@@ -14,8 +14,9 @@ import { DirectoryApplicationSelect } from '@/components/directory/DirectoryAppl
 import { DirectoryModuleSelect } from '@/components/directory/DirectoryModuleSelect';
 import { FormRichTextEditor } from '@/components/editor/FormRichTextEditor';
 import { ProseTextarea } from '@/components/editor/ProseTextarea';
+import { TestObjectLinksField } from '@/components/project/TestObjectLinksField';
 import { createEmptyRichText } from '@/domain/factories/createEntities';
-import type { RichTextContent } from '@/domain/types';
+import type { NamedLink, RichTextContent } from '@/domain/types';
 
 type CreateProjectModalProps = {
   opened: boolean;
@@ -23,6 +24,8 @@ type CreateProjectModalProps = {
   onCreated?: () => void;
   /** Prefill application from Applications page. */
   initialApplication?: string;
+  /** Prefill module from Applications page. */
+  initialModule?: string;
 };
 
 type CreateTaskFormState = {
@@ -31,6 +34,7 @@ type CreateTaskFormState = {
   application: string;
   module: string;
   testObject: string;
+  testObjectLinks: NamedLink[];
   testGoal: RichTextContent;
   generalProvisions: string;
   functionalRequirements: RichTextContent;
@@ -41,12 +45,13 @@ type CreateTaskFormState = {
 const TASK_NAME_MAX_LENGTH = 2000;
 const TASK_SHORT_NAME_MAX_LENGTH = 80;
 
-const emptyForm = (application = ''): CreateTaskFormState => ({
+const emptyForm = (application = '', module = ''): CreateTaskFormState => ({
   name: '',
   shortName: '',
   application,
-  module: '',
+  module,
   testObject: '',
+  testObjectLinks: [],
   testGoal: createEmptyRichText(),
   generalProvisions: '',
   functionalRequirements: createEmptyRichText(),
@@ -63,18 +68,19 @@ export function CreateProjectModal({
   onClose,
   onCreated,
   initialApplication = '',
+  initialModule = '',
 }: CreateProjectModalProps) {
-  const [form, setForm] = useState<CreateTaskFormState>(emptyForm(initialApplication));
+  const [form, setForm] = useState<CreateTaskFormState>(emptyForm(initialApplication, initialModule));
   const [submitting, setSubmitting] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
 
   useEffect(() => {
     if (opened) {
-      setForm(emptyForm(initialApplication.trim()));
+      setForm(emptyForm(initialApplication.trim(), initialModule.trim()));
       setNameError(null);
       setSubmitting(false);
     }
-  }, [opened, initialApplication]);
+  }, [opened, initialApplication, initialModule]);
 
   const handleClose = () => {
     if (submitting) {
@@ -98,6 +104,7 @@ export function CreateProjectModal({
       application: form.application.trim(),
       module: form.module.trim(),
       testObject: form.testObject,
+      testObjectLinks: form.testObjectLinks,
       testGoal: form.testGoal,
       generalProvisions: form.generalProvisions,
       functionalRequirements: form.functionalRequirements,
@@ -135,7 +142,7 @@ export function CreateProjectModal({
             <ProseTextarea
               label="Название задачи"
               description={`Текстовое поле, до ${TASK_NAME_MAX_LENGTH} символов`}
-              placeholder="Например: Методика испытаний в рамках задачи «Релиз 2. …»"
+              placeholder="Введите название задачи, которое хотите видеть на титульном листе"
               value={form.name}
               onChange={(event) => {
                 const value = readInputValue(event);
@@ -178,8 +185,8 @@ export function CreateProjectModal({
 
             <ProseTextarea
               label="Объект испытаний"
-              description="Можно вставлять ссылки (URL) и несколько строк"
-              placeholder="https://… или описание объекта"
+              description="Описание объекта; ссылки задаются отдельно ниже"
+              placeholder="Описание объекта"
               value={form.testObject}
               onChange={(event) => {
                 const value = readInputValue(event);
@@ -188,6 +195,10 @@ export function CreateProjectModal({
               minRows={2}
               autosize
               maxRows={8}
+            />
+            <TestObjectLinksField
+              value={form.testObjectLinks}
+              onChange={(testObjectLinks) => setForm((prev) => ({ ...prev, testObjectLinks }))}
             />
 
             <div>

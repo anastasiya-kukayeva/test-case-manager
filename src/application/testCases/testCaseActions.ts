@@ -167,6 +167,37 @@ export const testCaseActions = {
     }
   },
 
+  setRegressionFlags(
+    id: string,
+    patch: { includeInRegression?: boolean; includeInTaskRegression?: boolean },
+  ): boolean {
+    try {
+      const current = requireOpenProject();
+      const existing = current.document.testCases.find((item) => item.id === id);
+      if (!existing) {
+        throw new AppError('NOT_FOUND', 'Тест-кейс не найден');
+      }
+      const nextRegression = patch.includeInRegression ?? existing.includeInRegression;
+      const nextTaskRegression = patch.includeInTaskRegression ?? existing.includeInTaskRegression;
+      if (
+        existing.includeInRegression === nextRegression &&
+        existing.includeInTaskRegression === nextTaskRegression
+      ) {
+        return true;
+      }
+
+      useProjectStore.getState().updateTestCase(id, {
+        includeInRegression: nextRegression,
+        includeInTaskRegression: nextTaskRegression,
+      });
+      void projectActions.saveIfDirty({ silent: true });
+      return true;
+    } catch (error) {
+      notifyError(error, { title: 'Не удалось изменить отметку регресса' });
+      return false;
+    }
+  },
+
   setIncludeInReport(id: string, includeInReport: boolean): boolean {
     try {
       const current = requireOpenProject();

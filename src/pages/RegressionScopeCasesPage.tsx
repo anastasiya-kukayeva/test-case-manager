@@ -11,7 +11,7 @@ import {
   ActionIcon,
 } from '@mantine/core';
 import { IconAlertCircle, IconArrowLeft, IconFileImport, IconFileWord, IconRefresh } from '@tabler/icons-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { matchesDateFilter } from '@/application/testCases/datePresets';
 import {
@@ -25,6 +25,10 @@ import {
   type RegressionTaskGroup,
 } from '@/application/regression/loadRegressionGroups';
 import { exportActions } from '@/application/export/exportActions';
+import {
+  regressionReportImportActions,
+  type RegressionImportTaskRef,
+} from '@/application/import/regressionReportImportActions';
 import { projectActions } from '@/application/project/projectActions';
 import { nextTestCaseNumber } from '@/application/testCases/renumberTestCases';
 import { testCaseActions } from '@/application/testCases/testCaseActions';
@@ -36,6 +40,7 @@ import {
 } from '@/components/testCases/TestCasesListTable';
 import { FadeIn } from '@/components/ui/FadeIn';
 import type { TestResultOutcome } from '@/domain/types';
+import { getTaskShortLabel } from '@/domain/utils/taskDisplay';
 import { regressionBrowsePath, testCaseEditorPath } from '@/routes/paths';
 import { useAppStore } from '@/stores/useAppStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
@@ -69,6 +74,8 @@ function toDisplayRows(cases: RegressionCaseItem[], showSource: boolean): TestCa
       title: item.title,
       goal: item.goal,
       includeInReport: item.includeInReport !== false,
+      includeInRegression: item.includeInRegression,
+      includeInTaskRegression: item.includeInTaskRegression,
       testOutcome: item.testOutcome,
       sourceLabel: showSource
         ? item.taskShortLabel !== item.taskName
@@ -106,6 +113,8 @@ export function RegressionScopeCasesPage() {
   const [duplicateSource, setDuplicateSource] = useState<RegressionCaseItem | null>(null);
   const [duplicateSuggestedNumber, setDuplicateSuggestedNumber] = useState('1');
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   const reload = useCallback(async () => {
     if (!mode) {
@@ -113,13 +122,16 @@ export function RegressionScopeCasesPage() {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!hasLoadedRef.current) {
+      setLoading(true);
+    }
     setError(null);
     try {
       if (!useDirectoryStore.getState().isLoaded) {
         await loadDirectory();
       }
       setGroups(await loadRegressionCasesByModule(mode));
+      hasLoadedRef.current = true;
     } catch (loadError) {
       setGroups(EMPTY_GROUPS);
       setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить регресс');
@@ -193,6 +205,78 @@ export function RegressionScopeCasesPage() {
     return map;
   }, [selection.cases]);
 
+  const taskRefFromGroup = (task: RegressionTaskGroup): RegressionImportTaskRef => {
+    const first = task.cases[0];
+    return {
+      taskId: task.taskId,
+      taskShortLabel: task.taskShortLabel,
+      taskFilePath: task.taskFilePath,
+      application: first?.application ?? '',
+      module: first && first.module !== UNASSIGNED_MODULE ? first.module : '',
+    };
+  };
+
+  const importTargets = (): RegressionImportTaskRef[] => {
+    if (isTask) {
+      const task = [...groups.modules.flatMap((item) => item.tasks), ...groups.unassigned].find(
+        (item) => item.taskId === scopeId,
+      );
+      if (task) {
+        return [taskRefFromGroup(task)];
+      }
+      if (current?.document.meta.id === scopeId) {
+        return [
+          {
+            taskId: current.document.meta.id,
+            taskShortLabel: getTaskShortLabel(current.document.meta),
+            taskFilePath: current.filePath,
+            application: current.document.meta.application?.trim() ?? '',
+            module: current.document.meta.module?.trim() ?? '',
+          },
+        ];
+      }
+      const recent = recentProjects.find((item) => item.id === scopeId);
+      if (recent?.filePath) {
+        return [
+          {
+            taskId: recent.id,
+            taskShortLabel: getTaskShortLabel(recent),
+            taskFilePath: recent.filePath,
+            application: '',
+            module: '',
+          },
+        ];
+      }
+      return [];
+    }
+    if (isModule) {
+      const moduleGroup = groups.modules.find(
+        (item) => item.moduleName.toLocaleLowerCase('ru') === scopeId.toLocaleLowerCase('ru'),
+      );
+      return moduleGroup ? moduleGroup.tasks.map(taskRefFromGroup) : [];
+    }
+    return [];
+  };
+
+  const importReport = async () => {
+    if (!mode) {
+      return;
+    }
+    setImporting(true);
+    try {
+      const imported = await regressionReportImportActions.importReport({
+        mode,
+        singleTask: isTask,
+        tasks: importTargets(),
+      });
+      if (imported) {
+        await reload();
+      }
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const exportReport = async () => {
     if (!useDirectoryStore.getState().isLoaded) {
       await loadDirectory();
@@ -202,8 +286,22 @@ export function RegressionScopeCasesPage() {
     const environment = directory.environments.find((item) => item.isDefault);
     setExporting(true);
     try {
+      const included = selection.cases.filter((item) => item.includeInReport !== false);
+      const namedCases = included.length > 0 ? included : selection.cases;
+      const taskShortNames: string[] = [];
+      const seenTaskNames = new Set<string>();
+      for (const item of namedCases) {
+        const name = item.taskShortLabel.trim();
+        const key = name.toLocaleLowerCase('ru');
+        if (!name || seenTaskNames.has(key)) {
+          continue;
+        }
+        seenTaskNames.add(key);
+        taskShortNames.push(name);
+      }
       await exportActions.exportRegressionReport({
         moduleName: selection.moduleName,
+        taskShortName: taskShortNames.join(', ') || selection.title,
         authorName: author?.name ?? '',
         environmentName: environment?.name ?? '',
         cases: selection.cases
@@ -326,6 +424,60 @@ export function RegressionScopeCasesPage() {
     }
   };
 
+  const changeRegression = async (
+    row: TestCasesListRow,
+    patch: { includeInRegression?: boolean; includeInTaskRegression?: boolean },
+  ) => {
+    const item = caseById.get(row.id);
+    if (!item || !mode) {
+      return;
+    }
+    const ok = await ensureTaskOpen(item);
+    if (!ok) {
+      return;
+    }
+    const updated = testCaseActions.setRegressionFlags(row.id, patch);
+    if (!updated) {
+      return;
+    }
+    const nextRegression = patch.includeInRegression ?? item.includeInRegression;
+    const nextTaskRegression = patch.includeInTaskRegression ?? item.includeInTaskRegression;
+    const stays = mode === 'task' ? nextTaskRegression : nextRegression;
+    const applyCase = (entry: RegressionCaseItem): RegressionCaseItem | null => {
+      if (entry.id !== row.id) {
+        return entry;
+      }
+      if (!stays) {
+        return null;
+      }
+      return {
+        ...entry,
+        includeInRegression: nextRegression,
+        includeInTaskRegression: nextTaskRegression,
+      };
+    };
+    const applyTasks = (tasks: RegressionTaskGroup[]) =>
+      tasks
+        .map((task) => ({
+          ...task,
+          cases: task.cases.flatMap((entry) => {
+            const next = applyCase(entry);
+            return next ? [next] : [];
+          }),
+        }))
+        .filter((task) => task.cases.length > 0);
+    setGroups((current) => ({
+      modules: current.modules.map((moduleGroup) => ({
+        ...moduleGroup,
+        tasks: applyTasks(moduleGroup.tasks),
+      })),
+      unassigned: applyTasks(current.unassigned),
+    }));
+    if (item.taskFilePath) {
+      await projectActions.save();
+    }
+  };
+
   const changeIncludeInReport = async (row: TestCasesListRow, includeInReport: boolean) => {
     const item = caseById.get(row.id);
     if (!item) {
@@ -382,8 +534,14 @@ export function RegressionScopeCasesPage() {
             </Text>
           </div>
           <Group gap="xs">
-            <Button size="sm" variant="light" leftSection={<IconFileImport size={14} />}>
-              Импорт отчета в Word
+            <Button
+              size="sm"
+              variant="light"
+              loading={importing}
+              leftSection={<IconFileImport size={14} />}
+              onClick={() => void importReport()}
+            >
+              Импорт отчета из Word
             </Button>
             <Button
               size="sm"
@@ -439,6 +597,7 @@ export function RegressionScopeCasesPage() {
               onIncludeInReportChange={(row, includeInReport) =>
                 void changeIncludeInReport(row, includeInReport)
               }
+              onRegressionChange={(row, patch) => void changeRegression(row, patch)}
               openingId={openingId}
               deletingId={deletingId}
               duplicatingId={duplicatingId}

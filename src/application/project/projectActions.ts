@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid';
 import { AppError } from '@/application/errors/AppError';
 import { notifyError, notifySuccess, notifyWarning } from '@/application/errors/errorHandler';
 import { createEmptyProjectDocument } from '@/domain/factories/createEntities';
-import type { ProjectDocument, RecentProject, RichTextContent } from '@/domain/types';
+import type { NamedLink, ProjectDocument, RecentProject, RichTextContent } from '@/domain/types';
 import { projectFileService } from '@/infrastructure/project/projectFileService';
 import { recoveryService } from '@/infrastructure/project/recoveryService';
 import { useAppStore } from '@/stores/useAppStore';
@@ -14,6 +14,7 @@ export type CreateProjectInput = {
   application?: string;
   module?: string;
   testObject?: string;
+  testObjectLinks?: NamedLink[];
   testGoal?: RichTextContent;
   generalProvisions?: string;
   functionalRequirements?: RichTextContent;
@@ -57,6 +58,13 @@ export const projectActions = {
           application: input.application?.trim() ?? '',
           module: input.module?.trim() ?? '',
           testObject: input.testObject?.trim() ?? '',
+          testObjectLinks: (input.testObjectLinks ?? [])
+            .map((link) => ({
+              id: link.id,
+              title: link.title.trim(),
+              url: link.url.trim(),
+            }))
+            .filter((link) => link.title || link.url),
           testGoal: input.testGoal,
           generalProvisions: input.generalProvisions?.trim() ?? '',
           functionalRequirements: input.functionalRequirements,

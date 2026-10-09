@@ -247,13 +247,13 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
           next = [
             { ...(existing ?? {}), ...project },
             ...current.filter((item) => item.filePath !== project.filePath),
-          ].slice(0, 10);
+          ];
         }
         useAppStore.getState().setRecentProjects(next);
         return;
       }
 
-      const next = await appStorageService.addRecentProject(project, 10, { bumpToFront });
+      const next = await appStorageService.addRecentProject(project, { bumpToFront });
       useAppStore.getState().setRecentProjects(next);
       await appStorageService.setLastOpenedProjectPath(project.filePath);
     } catch {

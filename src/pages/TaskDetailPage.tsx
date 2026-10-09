@@ -162,6 +162,7 @@ export function TaskDetailPage() {
             <ProseTextarea
               label="Название задачи"
               description="Текстовое поле, до 2000 символов"
+              placeholder="Введите название задачи, которое хотите видеть на титульном листе"
               value={current.document.meta.name}
               onChange={(event) => {
                 const value = event.currentTarget?.value ?? event.target?.value ?? '';

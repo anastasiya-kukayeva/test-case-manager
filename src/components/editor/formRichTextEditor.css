@@ -294,11 +294,13 @@
 }
 
 /*
- * Nested bullets via ::before (• ○ ▪ ▫ ▸) so markers stay visible inside
- * scrollable "Результат проверки" (overflow clips native outside markers).
+ * Five nested bullet levels, drawn at one size so the glyphs stay even:
+ * circle, square, triangle, hollow dot, diamond.
+ * ::before keeps markers visible inside scrollable fields.
  */
 .tcm-rich-text-editor .ProseMirror ul {
   list-style: none;
+  --tcm-bullet-size: 6px;
 }
 
 .tcm-rich-text-editor .ProseMirror ul > li {
@@ -307,15 +309,17 @@
 }
 
 .tcm-rich-text-editor .ProseMirror ul > li::before {
-  content: '•';
+  content: '';
   position: absolute;
-  left: -1.15rem;
-  top: 0;
-  width: 1rem;
-  text-align: center;
-  color: var(--mantine-color-dark-4);
-  font-weight: 700;
-  line-height: 1.55;
+  left: -0.95rem;
+  top: 0.48em;
+  width: var(--tcm-bullet-size);
+  height: var(--tcm-bullet-size);
+  box-sizing: border-box;
+  background: currentColor;
+  border: 1.25px solid transparent;
+  border-radius: 50%;
+  clip-path: none;
   pointer-events: none;
 }
 
@@ -326,25 +330,26 @@
 }
 
 .tcm-rich-text-editor .ProseMirror ul ul > li::before {
-  content: '○';
-  font-weight: 500;
+  border-radius: 1px;
 }
 
 .tcm-rich-text-editor .ProseMirror ul ul ul > li::before {
-  content: '▪';
-  font-size: 0.85em;
+  border-radius: 0;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
 
 .tcm-rich-text-editor .ProseMirror ul ul ul ul > li::before {
-  content: '▫';
-  font-size: 0.85em;
-  font-weight: 500;
+  background: transparent;
+  border-color: currentColor;
+  border-radius: 50%;
+  clip-path: none;
 }
 
 .tcm-rich-text-editor .ProseMirror ul ul ul ul ul > li::before {
-  content: '▸';
-  font-size: 0.85em;
-  font-weight: 500;
+  background: currentColor;
+  border-color: transparent;
+  border-radius: 0;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
 }
 
 .tcm-rich-text-editor .ProseMirror ol {

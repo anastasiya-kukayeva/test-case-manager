@@ -3,8 +3,8 @@ import type { ResolvedPos } from '@tiptap/pm/model';
 
 export const MAX_BULLET_LIST_DEPTH = 5;
 
-/** Markers for nesting levels 0..4 (• ○ ▪ ▫ ▸). */
-export const BULLET_MARKERS = ['•', '○', '▪', '▫', '▸'] as const;
+/** Markers for nesting levels 0..4: circle, square, triangle, hollow dot, diamond. */
+export const BULLET_MARKERS = ['•', '▪', '▴', '◦', '◆'] as const;
 
 export function bulletMarkerForDepth(depth: number): string {
   const index = Math.max(0, Math.min(BULLET_MARKERS.length - 1, depth));

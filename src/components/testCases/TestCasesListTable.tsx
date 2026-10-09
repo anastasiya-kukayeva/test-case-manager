@@ -13,7 +13,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ActionIcon, Box, Group, Table, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Box, Checkbox, Group, Table, Text, Tooltip } from '@mantine/core';
 import { IconCopy, IconEdit, IconGripVertical, IconTrash } from '@tabler/icons-react';
 import type { CSSProperties } from 'react';
 import { IncludeInReportControl } from '@/components/testCases/IncludeInReportControl';
@@ -27,6 +27,13 @@ export type TestCasesListRow = Pick<
 > & {
   /** Optional second line, for example the task a case was taken from. */
   sourceLabel?: string;
+  includeInRegression?: boolean;
+  includeInTaskRegression?: boolean;
+};
+
+export type RegressionFlagsChange = {
+  includeInRegression?: boolean;
+  includeInTaskRegression?: boolean;
 };
 
 type TestCasesListTableProps = {
@@ -35,6 +42,7 @@ type TestCasesListTableProps = {
   onDelete?: (row: TestCasesListRow) => void;
   onDuplicate?: (row: TestCasesListRow) => void;
   onIncludeInReportChange?: (row: TestCasesListRow, includeInReport: boolean) => void;
+  onRegressionChange?: (row: TestCasesListRow, patch: RegressionFlagsChange) => void;
   onOutcomeChange?: (row: TestCasesListRow, outcome: TestResultOutcome) => void;
   /** When set, rows become draggable; called with ids in the new visual order. */
   onReorder?: (orderedIds: string[]) => void;
@@ -57,6 +65,8 @@ type SortableRowProps = {
   onDuplicate?: (row: TestCasesListRow) => void;
   onIncludeInReportChange?: (row: TestCasesListRow, includeInReport: boolean) => void;
   showIncludeInReport: boolean;
+  onRegressionChange?: (row: TestCasesListRow, patch: RegressionFlagsChange) => void;
+  showRegression: boolean;
   onOutcomeChange?: (row: TestCasesListRow, outcome: TestResultOutcome) => void;
   openingId: string | null;
   deletingId: string | null;
@@ -72,6 +82,8 @@ function SortableTestCaseRow({
   onDuplicate,
   onIncludeInReportChange,
   showIncludeInReport,
+  onRegressionChange,
+  showRegression,
   onOutcomeChange,
   openingId,
   deletingId,
@@ -135,6 +147,50 @@ function SortableTestCaseRow({
           </Text>
         ) : null}
       </Table.Td>
+      {showRegression ? (
+        <>
+          <Table.Td
+            className="tcm-regression-col"
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <Group justify="center">
+              <Checkbox
+                className="tcm-regression-check"
+                radius={2}
+                size="xs"
+                checked={Boolean(row.includeInRegression)}
+                aria-label="Добавить в регресс?"
+                onChange={(event) => {
+                  onRegressionChange?.(row, { includeInRegression: event.currentTarget.checked });
+                }}
+              />
+            </Group>
+          </Table.Td>
+          <Table.Td
+            className="tcm-regression-col"
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <Group justify="center">
+              <Checkbox
+                className="tcm-regression-check"
+                radius={2}
+                size="xs"
+                checked={Boolean(row.includeInTaskRegression)}
+                aria-label="Добавить в регресс задачи?"
+                onChange={(event) => {
+                  onRegressionChange?.(row, {
+                    includeInTaskRegression: event.currentTarget.checked,
+                  });
+                }}
+              />
+            </Group>
+          </Table.Td>
+        </>
+      ) : null}
       {showIncludeInReport ? (
         <Table.Td
           style={{ width: 150 }}
@@ -222,6 +278,7 @@ export function TestCasesListTable({
   onDelete,
   onDuplicate,
   onIncludeInReportChange,
+  onRegressionChange,
   onOutcomeChange,
   onReorder,
   openingId = null,
@@ -255,7 +312,9 @@ export function TestCasesListTable({
   };
 
   const showIncludeInReport = Boolean(onIncludeInReportChange);
-  const columnCount = showIncludeInReport ? 5 : 4;
+  const showRegression = Boolean(onRegressionChange);
+  const columnCount = 4 + (showIncludeInReport ? 1 : 0) + (showRegression ? 2 : 0);
+  const headRowSpan = showRegression ? 2 : undefined;
   const actionsColWidth =
     56 + (onDuplicate ? 36 : 0) + (onDelete ? 36 : 0);
 
@@ -271,14 +330,37 @@ export function TestCasesListTable({
       >
         <Table.Thead>
           <Table.Tr>
-            <Table.Th style={{ width: sortable ? 140 : 120 }}>Тест №</Table.Th>
-            <Table.Th>Цель / название</Table.Th>
-            {showIncludeInReport ? (
-              <Table.Th style={{ width: 150 }}>Добавить в отчет</Table.Th>
+            <Table.Th rowSpan={headRowSpan} style={{ width: sortable ? 140 : 120 }}>
+              Тест №
+            </Table.Th>
+            <Table.Th rowSpan={headRowSpan}>Цель / название</Table.Th>
+            {showRegression ? (
+              <Table.Th colSpan={2} ta="center">
+                Регресс
+              </Table.Th>
             ) : null}
-            <Table.Th style={{ width: 118 }}>Результат</Table.Th>
-            <Table.Th style={{ width: actionsColWidth }}> </Table.Th>
+            {showIncludeInReport ? (
+              <Table.Th rowSpan={headRowSpan} style={{ width: 150 }}>
+                Добавить в отчет
+              </Table.Th>
+            ) : null}
+            <Table.Th rowSpan={headRowSpan} style={{ width: 118 }}>
+              Результат
+            </Table.Th>
+            <Table.Th rowSpan={headRowSpan} style={{ width: actionsColWidth }}>
+              {' '}
+            </Table.Th>
           </Table.Tr>
+          {showRegression ? (
+            <Table.Tr>
+              <Table.Th ta="center" className="tcm-regression-col">
+                Регресс общий
+              </Table.Th>
+              <Table.Th ta="center" className="tcm-regression-col">
+                Регресс задачи
+              </Table.Th>
+            </Table.Tr>
+          ) : null}
         </Table.Thead>
         <Table.Tbody>
           {rows.length === 0 ? (
@@ -301,6 +383,8 @@ export function TestCasesListTable({
                 onDuplicate={onDuplicate}
                 onIncludeInReportChange={onIncludeInReportChange}
                 showIncludeInReport={showIncludeInReport}
+                onRegressionChange={onRegressionChange}
+                showRegression={showRegression}
                 onOutcomeChange={onOutcomeChange}
                 openingId={openingId}
                 deletingId={deletingId}

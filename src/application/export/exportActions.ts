@@ -5,7 +5,7 @@ import { DEFAULT_APP_SETTINGS, type TaskDocument, type TestCase } from '@/domain
 import { buildPmiDocx, buildTestCaseDocx } from '@/infrastructure/export/docxExportService';
 import {
   buildRegressionReportDocx,
-  REGRESSION_REPORT_TITLE,
+  regressionReportFileName,
   type RegressionReportHeader,
 } from '@/infrastructure/export/regressionReportDocx';
 import { uint8ArrayToBase64 } from '@/infrastructure/export/exportUtils';
@@ -127,7 +127,7 @@ export const exportActions = {
       const bytes = await buildRegressionReportDocx(header);
       const savedPath = await saveDocxFile({
         bytes,
-        suggestedName: `${sanitizeFileName(REGRESSION_REPORT_TITLE)}.docx`,
+        suggestedName: `${sanitizeFileName(regressionReportFileName(header.taskShortName, header.conductedAt))}.docx`,
         title: 'Экспорт отчета в Word',
       });
 

@@ -93,7 +93,6 @@ export const appStorageService = {
 
   async addRecentProject(
     project: RecentProject,
-    limit = 10,
     options?: { bumpToFront?: boolean },
   ): Promise<RecentProject[]> {
     const bumpToFront = options?.bumpToFront ?? true;
@@ -106,7 +105,7 @@ export const appStorageService = {
     } else {
       const existing = existingIndex >= 0 ? current[existingIndex] : null;
       const filtered = current.filter((item) => item.filePath !== project.filePath);
-      next = [{ ...(existing ?? {}), ...project }, ...filtered].slice(0, limit);
+      next = [{ ...(existing ?? {}), ...project }, ...filtered];
     }
 
     await this.saveRecentProjects(next);
