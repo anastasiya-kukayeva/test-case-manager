@@ -168,6 +168,7 @@ npm run build
 | `npm run build:vite` | Production-сборка без installer |
 | `npm run build` | Production-сборка + electron-builder (NSIS) |
 | `npm run preview` | Предпросмотр Vite (без полного Electron-сценария) |
+| `npm run test` | Unit-тесты основного сценария (Vitest) |
 | `npm run typecheck` | Проверка TypeScript |
 | `npm run lint` | ESLint |
 | `npm run format` | Prettier для `src` и `electron` |
@@ -276,6 +277,7 @@ test-case-manager/
 Проверки качества:
 
 ```powershell
+npm run test
 npm run typecheck
 npm run lint
 npm run build:vite

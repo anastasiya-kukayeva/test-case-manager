@@ -151,6 +151,7 @@ src/
 
 ```powershell
 npm run dev
+npm run test
 npm run typecheck
 npm run lint
 ```
