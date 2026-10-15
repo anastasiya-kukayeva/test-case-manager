@@ -10,6 +10,8 @@ export type {
   TestCase,
   TestCaseSummary,
   RichTextContent,
+  PsiStep,
+  PsiResultItem,
 } from '@/domain/types/testCase';
 export { isMarkedForRegression } from '@/domain/types/testCase';
 export type {

@@ -97,6 +97,8 @@ export function createEmptyTestCase(partial?: Partial<TestCase>): TestCase {
     goalImages: partial?.goalImages ?? [],
     preconditions: partial?.preconditions ?? '',
     steps: partial?.steps ?? createEmptyRichText(),
+    psiSteps: partial?.psiSteps ?? [],
+    psiResults: partial?.psiResults ?? [],
     verificationResult: partial?.verificationResult ?? createEmptyRichText(),
     verificationAttachments: partial?.verificationAttachments ?? [],
     testOutcome: partial?.testOutcome ?? null,
@@ -130,6 +132,7 @@ export function createTaskMeta(partial?: Partial<ProjectMeta>): ProjectMeta {
     createdAt: partial?.createdAt ?? now,
     updatedAt: partial?.updatedAt ?? now,
     parentTaskId: partial?.parentTaskId ?? null,
+    templateId: partial?.templateId ?? 'pmi',
   };
 }
 

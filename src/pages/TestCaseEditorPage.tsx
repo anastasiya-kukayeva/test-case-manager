@@ -10,6 +10,7 @@ import type { TestCaseEditorFormValues } from '@/domain/schemas/testCaseSchema';
 import { isRegressionMode, type RegressionMode } from '@/application/regression/loadRegressionGroups';
 import { AppRoutes, regressionBrowsePath } from '@/routes/paths';
 import { useProjectStore } from '@/stores/useProjectStore';
+import { resolveTemplateId } from '@/templates/registry';
 
 export function TestCaseEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -110,6 +111,7 @@ export function TestCaseEditorPage() {
 
       <TestCaseEditorForm
         key={testCase.id}
+        templateId={resolveTemplateId(current.document.meta.templateId)}
         testCase={testCase}
         taskName={current.document.meta.name}
         onSave={(values) => {

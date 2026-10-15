@@ -10,6 +10,17 @@ export type RichTextContent = {
   plainText: string;
 };
 
+export type PsiStep = {
+  id: string;
+  content: RichTextContent;
+};
+
+export type PsiResultItem = {
+  id: string;
+  expected: RichTextContent;
+  actual: RichTextContent;
+};
+
 export type TestCase = {
   id: string;
   number: string;
@@ -26,6 +37,10 @@ export type TestCase = {
   preconditions: string;
   /** Free-form steps text; supports numbered lists via rich text. */
   steps: RichTextContent;
+  /** Numbered reproduction steps for the PSI template. */
+  psiSteps?: PsiStep[];
+  /** Paired expected/actual results for the PSI template. Numbers are shared. */
+  psiResults?: PsiResultItem[];
   verificationResult: RichTextContent;
   verificationAttachments: TestAttachment[];
   testOutcome: TestResultOutcome;

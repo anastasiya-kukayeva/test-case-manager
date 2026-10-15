@@ -3,6 +3,8 @@ import { notifyError } from '@/application/errors/errorHandler';
 import { notifyExportSaved } from '@/application/export/notifyExportSaved';
 import { DEFAULT_APP_SETTINGS, type TaskDocument, type TestCase } from '@/domain/types';
 import { buildPmiDocx, buildTestCaseDocx } from '@/infrastructure/export/docxExportService';
+import { resolveTemplateId } from '@/templates/registry';
+import { buildPsiDocx } from '@/templates/psi/buildDocx';
 import {
   buildRegressionReportDocx,
   regressionReportFileName,
@@ -102,11 +104,14 @@ export const exportActions = {
     try {
       const document = requireOpenTask();
       const settings = useAppStore.getState().settings.export ?? DEFAULT_APP_SETTINGS.export;
-      const bytes = await buildPmiDocx({ document, settings });
+      const isPsi = resolveTemplateId(document.meta.templateId) === 'psi';
+      const bytes = isPsi
+        ? await buildPsiDocx({ document, settings })
+        : await buildPmiDocx({ document, settings });
       const savedPath = await saveDocxFile({
         bytes,
         suggestedName: exportDocumentFileName(document),
-        title: 'Экспорт ПМИ в Word',
+        title: isPsi ? 'Экспорт ПСИ в Word' : 'Экспорт ПМИ в Word',
       });
 
       if (!savedPath) {
@@ -151,16 +156,19 @@ export const exportActions = {
     try {
       const document = withMergedTestCase(requireOpenTask(), testCase);
       const settings = useAppStore.getState().settings.export ?? DEFAULT_APP_SETTINGS.export;
-      const bytes = await buildTestCaseDocx({
-        testCase,
-        taskName: document.meta.name,
-        settings,
-        document,
-      });
+      const isPsi = resolveTemplateId(document.meta.templateId) === 'psi';
+      const bytes = isPsi
+        ? await buildPsiDocx({ document, settings })
+        : await buildTestCaseDocx({
+            testCase,
+            taskName: document.meta.name,
+            settings,
+            document,
+          });
       const savedPath = await saveDocxFile({
         bytes,
         suggestedName: exportDocumentFileName(document),
-        title: 'Экспорт ПМИ в Word',
+        title: isPsi ? 'Экспорт ПСИ в Word' : 'Экспорт ПМИ в Word',
       });
 
       if (!savedPath) {

@@ -21,6 +21,7 @@ import { AppRoutes, testCaseEditorPath } from '@/routes/paths';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useTestCaseTableStore } from '@/stores/useTestCaseTableStore';
 import { useUiStore } from '@/stores/useUiStore';
+import { resolveTemplateId } from '@/templates/registry';
 
 export function TestCasesPage() {
   const navigate = useNavigate();
@@ -85,6 +86,9 @@ export function TestCasesPage() {
     void navigate(testCaseEditorPath(row.id));
   };
 
+  const templateId = resolveTemplateId(current.document.meta.templateId);
+  const isPsi = templateId === 'psi';
+
   const suggestedNumber =
     formMode === 'create' ? nextTestCaseNumber(current.document.testCases) : undefined;
 
@@ -124,12 +128,18 @@ export function TestCasesPage() {
           onDelete={(row) => {
             void testCaseActions.remove([row.id]);
           }}
+          nameColumnLabel={isPsi ? 'Наименование теста' : 'Цель / название'}
+          preferTitle={isPsi}
           onOutcomeChange={(row, outcome) => {
             testCaseActions.setOutcome(row.id, outcome);
           }}
-          onRegressionChange={(row, patch) => {
-            testCaseActions.setRegressionFlags(row.id, patch);
-          }}
+          onRegressionChange={
+            isPsi
+              ? undefined
+              : (row, patch) => {
+                  testCaseActions.setRegressionFlags(row.id, patch);
+                }
+          }
           onReorder={(orderedIds) => {
             testCaseActions.reorder(orderedIds);
           }}
@@ -142,6 +152,7 @@ export function TestCasesPage() {
         mode={formMode}
         initial={editing}
         suggestedNumber={suggestedNumber}
+        showTitle={isPsi}
         onClose={() => setFormOpened(false)}
         onSubmit={(values) => {
           if (formMode === 'create') {

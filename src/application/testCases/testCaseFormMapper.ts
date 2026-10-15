@@ -1,6 +1,7 @@
 import type { TestCase } from '@/domain/types';
 import type { TestCaseEditorFormValues } from '@/domain/schemas/testCaseSchema';
 import { createEmptyRichText, normalizeStepsContent } from '@/domain/factories/createEntities';
+import { isRichContentFilled } from '@/templates/shared/richContent';
 import {
   isCodeAttachment,
   isImageAttachment,
@@ -112,6 +113,15 @@ export function testCaseToFormValues(testCase: TestCase): TestCaseEditorFormValu
     goalImages: testCase.goalImages ?? [],
     preconditions: testCase.preconditions ?? '',
     steps: normalizeStepsContent(testCase.steps),
+    psiSteps: (testCase.psiSteps ?? []).map((step) => ({
+      id: step.id,
+      content: step.content ?? createEmptyRichText(),
+    })),
+    psiResults: (testCase.psiResults ?? []).map((item) => ({
+      id: item.id,
+      expected: item.expected ?? createEmptyRichText(),
+      actual: item.actual ?? createEmptyRichText(),
+    })),
     verificationResult: inlineVerificationAttachments(
       testCase.verificationResult ?? createEmptyRichText(),
       testCase.verificationAttachments ?? [],
@@ -140,6 +150,10 @@ export function formValuesToTestCasePatch(
     goalImages: values.goalImages,
     preconditions: values.preconditions,
     steps: values.steps,
+    psiSteps: values.psiSteps,
+    psiResults: values.psiResults.filter(
+      (item) => isRichContentFilled(item.expected) || isRichContentFilled(item.actual),
+    ),
     verificationResult: values.verificationResult,
     // Screenshots, code and logs live in verificationResult HTML.
     verificationAttachments: [],

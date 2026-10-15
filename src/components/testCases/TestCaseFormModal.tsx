@@ -9,6 +9,8 @@ type TestCaseFormModalProps = {
   initial?: TestCase | null;
   /** Prefill for create mode (sequential number). */
   suggestedNumber?: string;
+  /** PSI asks for the case name in this dialog. */
+  showTitle?: boolean;
   onClose: () => void;
   onSubmit: (values: TestCaseFormValues) => void;
 };
@@ -32,6 +34,7 @@ export function TestCaseFormModal({
   mode,
   initial,
   suggestedNumber,
+  showTitle = false,
   onClose,
   onSubmit,
 }: TestCaseFormModalProps) {
@@ -46,7 +49,7 @@ export function TestCaseFormModal({
   }, [opened, initial, suggestedNumber]);
 
   const handleSubmit = () => {
-    if (!values.number.trim()) {
+    if (!values.number.trim() || (showTitle && !values.title.trim())) {
       return;
     }
     onSubmit({
@@ -65,7 +68,7 @@ export function TestCaseFormModal({
     >
       <Stack gap="md">
         <TextInput
-          label="Тест №"
+          label={showTitle ? '№ теста' : 'Тест №'}
           required
           value={values.number}
           onChange={(event) => {
@@ -75,11 +78,26 @@ export function TestCaseFormModal({
           data-autofocus
         />
 
+        {showTitle ? (
+          <TextInput
+            label="Наименование тест-кейса"
+            required
+            value={values.title}
+            onChange={(event) => {
+              const value = event.currentTarget?.value ?? event.target?.value ?? '';
+              setValues((prev) => ({ ...prev, title: value }));
+            }}
+          />
+        ) : null}
+
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
             Отмена
           </Button>
-          <Button onClick={handleSubmit} disabled={!values.number.trim()}>
+          <Button
+            onClick={handleSubmit}
+            disabled={!values.number.trim() || (showTitle && !values.title.trim())}
+          >
             {mode === 'create' ? 'Создать' : 'Сохранить'}
           </Button>
         </Group>

@@ -53,9 +53,15 @@ type TestCasesListTableProps = {
   leavingIds?: ReadonlySet<string>;
   emptyText?: string;
   rowKeyPrefix?: string;
+  /** PSI list names the column «Наименование теста» and reads the case title. */
+  nameColumnLabel?: string;
+  preferTitle?: boolean;
 };
 
-function goalLabel(row: TestCasesListRow): string {
+function goalLabel(row: TestCasesListRow, preferTitle: boolean): string {
+  if (preferTitle) {
+    return row.title?.trim() || row.goal?.plainText?.trim() || '—';
+  }
   return row.goal?.plainText?.trim() || row.title?.trim() || '—';
 }
 
@@ -75,6 +81,7 @@ type SortableRowProps = {
   duplicatingId: string | null;
   leaving: boolean;
   rowKey: string;
+  preferTitle: boolean;
 };
 
 function SortableTestCaseRow({
@@ -93,13 +100,14 @@ function SortableTestCaseRow({
   duplicatingId,
   leaving,
   rowKey,
+  preferTitle,
 }: SortableRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: row.id,
     disabled: !sortable,
   });
 
-  const label = goalLabel(row);
+  const label = goalLabel(row, preferTitle);
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -291,6 +299,8 @@ export function TestCasesListTable({
   leavingIds,
   emptyText = 'Нет тест-кейсов',
   rowKeyPrefix = '',
+  nameColumnLabel = 'Цель / название',
+  preferTitle = false,
 }: TestCasesListTableProps) {
   const sortable = Boolean(onReorder) && rows.length > 1;
   const sensors = useSensors(
@@ -338,7 +348,7 @@ export function TestCasesListTable({
             <Table.Th rowSpan={headRowSpan} style={{ width: sortable ? 140 : 120 }}>
               Тест №
             </Table.Th>
-            <Table.Th rowSpan={headRowSpan}>Цель / название</Table.Th>
+            <Table.Th rowSpan={headRowSpan}>{nameColumnLabel}</Table.Th>
             {showRegression ? (
               <Table.Th colSpan={2} ta="center">
                 Регресс
@@ -395,6 +405,7 @@ export function TestCasesListTable({
                 deletingId={deletingId}
                 duplicatingId={duplicatingId}
                 leaving={Boolean(leavingIds?.has(row.id))}
+                preferTitle={preferTitle}
               />
             ))
           )}

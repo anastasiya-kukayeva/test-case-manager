@@ -9,6 +9,7 @@ import { useAppStore } from '@/stores/useAppStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 
 export type CreateProjectInput = {
+  templateId?: 'pmi' | 'psi';
   name: string;
   shortName?: string;
   application?: string;
@@ -51,6 +52,7 @@ export const projectActions = {
 
       const document = createEmptyProjectDocument({
         meta: {
+          templateId: input.templateId === 'psi' ? 'psi' : 'pmi',
           name: input.name.trim() || 'Новая задача',
           shortName: input.shortName?.trim() ?? '',
           description: input.description?.trim() ?? '',

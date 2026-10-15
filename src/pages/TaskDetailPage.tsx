@@ -3,6 +3,7 @@ import {
   Button,
   Card,
   Group,
+  Select,
   SimpleGrid,
   Stack,
   Text,
@@ -21,6 +22,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { exportActions } from '@/application/export/exportActions';
 import { projectActions } from '@/application/project/projectActions';
+import { confirmAction } from '@/application/ui/confirmAction';
 import { ImportWordTestCasesButton } from '@/components/testCases/ImportWordTestCasesButton';
 import { FormRichTextEditor } from '@/components/editor/FormRichTextEditor';
 import { ProseTextarea } from '@/components/editor/ProseTextarea';
@@ -31,6 +33,7 @@ import { FadeIn } from '@/components/ui/FadeIn';
 import { getTaskShortLabel } from '@/domain/utils/taskDisplay';
 import { AppRoutes } from '@/routes/paths';
 import { useProjectStore } from '@/stores/useProjectStore';
+import { listTemplates, resolveTemplateId } from '@/templates/registry';
 
 export function TaskDetailPage() {
   const navigate = useNavigate();
@@ -79,6 +82,28 @@ export function TaskDetailPage() {
       </Stack>
     );
   }
+
+  const templateId = resolveTemplateId(current.document.meta.templateId);
+  const showPmiSections = templateId === 'pmi';
+
+  const changeTemplate = async (next: string | null) => {
+    if (next !== 'pmi' && next !== 'psi') {
+      return;
+    }
+    if (next === templateId) {
+      return;
+    }
+    const confirmed = await confirmAction({
+      title: 'Сменить шаблон?',
+      message:
+        'Поля, которых нет в новом шаблоне, пропадут из выгрузки Word. В файле задачи они останутся.',
+      confirmLabel: 'Сменить',
+    });
+    if (!confirmed) {
+      return;
+    }
+    updateProjectMeta({ templateId: next });
+  };
 
   return (
     <Stack gap="lg">
@@ -159,6 +184,13 @@ export function TaskDetailPage() {
               ) : null}
             </Group>
 
+            <Select
+              label="Шаблон документа"
+              data={listTemplates().map((item) => ({ value: item.id, label: item.title }))}
+              value={templateId}
+              allowDeselect={false}
+              onChange={(value) => void changeTemplate(value)}
+            />
             <ProseTextarea
               label="Название задачи"
               description="Текстовое поле, до 2000 символов"
@@ -205,6 +237,8 @@ export function TaskDetailPage() {
                 onChange={(module) => updateProjectMeta({ module })}
               />
             </SimpleGrid>
+            {showPmiSections ? (
+            <>
             <ProseTextarea
               label="Объект испытаний"
               description="Описание объекта; ссылки задаются отдельно ниже"
@@ -265,6 +299,8 @@ export function TaskDetailPage() {
                 minHeight={120}
               />
             </div>
+            </>
+            ) : null}
 
             <Text size="sm" c="dimmed">
               Путь: {current.filePath ?? 'ещё не сохранён на диск'}

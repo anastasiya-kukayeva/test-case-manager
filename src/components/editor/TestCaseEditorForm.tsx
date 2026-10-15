@@ -21,14 +21,18 @@ import { ScreenshotsField } from '@/components/editor/ScreenshotsField';
 import { TestCasePreview } from '@/components/editor/TestCasePreview';
 import { TestOutcomeSelector } from '@/components/editor/TestOutcomeSelector';
 import {
-  testCaseEditorSchema,
+  editorSchemaForTemplate,
   type TestCaseEditorFormValues,
 } from '@/domain/schemas/testCaseSchema';
 import type { TestCase } from '@/domain/types';
+import { PsiResultsField } from '@/templates/psi/PsiResultsField';
+import { PsiStepsField } from '@/templates/psi/PsiStepsField';
+import type { TemplateId } from '@/templates/types';
 
 type TestCaseEditorFormProps = {
   testCase: TestCase;
   taskName?: string;
+  templateId?: TemplateId;
   onSave: (values: TestCaseEditorFormValues) => void;
   onAutoSave: (values: TestCaseEditorFormValues) => void;
   /** Registers a sync flush of the current draft into the task (call before leave). */
@@ -38,12 +42,15 @@ type TestCaseEditorFormProps = {
 export function TestCaseEditorForm({
   testCase,
   taskName,
+  templateId = 'pmi',
   onSave,
   onAutoSave,
   onRegisterFlush,
 }: TestCaseEditorFormProps) {
   const [previewOpened, setPreviewOpened] = useState(false);
+  const schema = useMemo(() => editorSchemaForTemplate(templateId), [templateId]);
   const defaultValues = useMemo(() => testCaseToFormValues(testCase), [testCase]);
+  const isPsi = templateId === 'psi';
 
   const {
     control,
@@ -52,7 +59,7 @@ export function TestCaseEditorForm({
     watch,
     formState: { errors, isDirty },
   } = useForm<TestCaseEditorFormValues>({
-    resolver: zodResolver(testCaseEditorSchema),
+    resolver: zodResolver(schema),
     defaultValues,
     mode: 'onChange',
   });
@@ -74,7 +81,7 @@ export function TestCaseEditorForm({
       return;
     }
     const draft = valuesRef.current;
-    const parsed = testCaseEditorSchema.safeParse(draft);
+    const parsed = schema.safeParse(draft);
     onAutoSave(parsed.success ? parsed.data : draft);
     reset(parsed.success ? parsed.data : draft, { keepValues: true });
   };
@@ -89,19 +96,19 @@ export function TestCaseEditorForm({
     }
 
     const timer = window.setTimeout(() => {
-      const parsed = testCaseEditorSchema.safeParse(values);
+      const parsed = schema.safeParse(values);
       if (parsed.success) {
         onAutoSave(parsed.data);
         // Update defaults only — do not push HTML back into TipTap (causes dispatchTransaction crash).
         reset(parsed.data, { keepValues: true });
-      } else {
+      } else if (!isPsi) {
         // Keep a draft even if some step fields are temporarily empty.
         onAutoSave(values);
       }
     }, 800);
 
     return () => window.clearTimeout(timer);
-  }, [values, isDirty, onAutoSave, reset]);
+  }, [values, isDirty, onAutoSave, reset, schema, isPsi]);
 
   const handleManualSave = handleSubmit((data) => {
     onSave(data);
@@ -123,13 +130,15 @@ export function TestCaseEditorForm({
               </Text>
             </div>
             <Group>
-              <Button
-                variant="default"
-                leftSection={<IconEye size={16} />}
-                onClick={() => setPreviewOpened(true)}
-              >
-                Предпросмотр
-              </Button>
+              {isPsi ? null : (
+                <Button
+                  variant="default"
+                  leftSection={<IconEye size={16} />}
+                  onClick={() => setPreviewOpened(true)}
+                >
+                  Предпросмотр
+                </Button>
+              )}
               <Button type="submit" leftSection={<IconDeviceFloppy size={16} />}>
                 Сохранить
               </Button>
@@ -138,15 +147,11 @@ export function TestCaseEditorForm({
 
           <Accordion
             multiple
-            defaultValue={[
-              'header',
-              'goal',
-              'preconditions',
-              'steps',
-              'verification',
-              'outcome',
-              'regression',
-            ]}
+            defaultValue={
+              isPsi
+                ? ['header', 'title', 'steps', 'results']
+                : ['header', 'goal', 'preconditions', 'steps', 'verification', 'outcome', 'regression']
+            }
           >
             <EditorSection value="header" title="1. Заголовок теста" description="Номер теста">
               <Controller
@@ -162,8 +167,60 @@ export function TestCaseEditorForm({
                   />
                 )}
               />
+              {isPsi ? (
+                <Controller
+                  name="title"
+                  control={control}
+                  render={({ field }) => (
+                    <TextInput
+                      label="Наименование тест-кейса"
+                      required
+                      mt="md"
+                      error={errors.title?.message}
+                      {...field}
+                    />
+                  )}
+                />
+              ) : null}
             </EditorSection>
 
+            {isPsi ? (
+              <>
+                <EditorSection
+                  value="steps"
+                  title="2. Шаги воспроизведения"
+                  description="Каждый шаг — текст, снимки, код и логи"
+                >
+                  <Controller
+                    name="psiSteps"
+                    control={control}
+                    render={({ field }) => (
+                      <PsiStepsField value={field.value} onChange={field.onChange} />
+                    )}
+                  />
+                </EditorSection>
+                <EditorSection
+                  value="results"
+                  title="3. Результаты"
+                  description="Один номер есть и в ожидаемом, и в фактическом результате"
+                >
+                  <Controller
+                    name="psiResults"
+                    control={control}
+                    render={({ field }) => (
+                      <PsiResultsField
+                        value={field.value}
+                        onChange={field.onChange}
+                        errors={Array.isArray(errors.psiResults) ? errors.psiResults : undefined}
+                      />
+                    )}
+                  />
+                </EditorSection>
+              </>
+            ) : null}
+
+            {isPsi ? null : (
+            <>
             <EditorSection value="goal" title="2. Цель" description="Описание сценария и изображения">
               <Controller
                 name="goal"
@@ -304,6 +361,8 @@ export function TestCaseEditorForm({
                 />
               </Group>
             </EditorSection>
+            </>
+            )}
           </Accordion>
         </Stack>
       </form>

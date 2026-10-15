@@ -113,6 +113,8 @@ export const testCaseActions = {
         goalImages: structuredClone(existing.goalImages),
         preconditions: existing.preconditions,
         steps: structuredClone(existing.steps),
+        psiSteps: structuredClone(existing.psiSteps ?? []),
+        psiResults: structuredClone(existing.psiResults ?? []),
         verificationResult: structuredClone(existing.verificationResult),
         verificationAttachments: structuredClone(existing.verificationAttachments),
         testOutcome: existing.testOutcome,

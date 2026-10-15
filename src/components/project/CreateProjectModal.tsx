@@ -2,6 +2,7 @@ import {
   Button,
   Group,
   Modal,
+  Select,
   SimpleGrid,
   ScrollArea,
   Stack,
@@ -17,6 +18,8 @@ import { ProseTextarea } from '@/components/editor/ProseTextarea';
 import { TestObjectLinksField } from '@/components/project/TestObjectLinksField';
 import { createEmptyRichText } from '@/domain/factories/createEntities';
 import type { NamedLink, RichTextContent } from '@/domain/types';
+import { listTemplates } from '@/templates/registry';
+import type { TemplateId } from '@/templates/types';
 
 type CreateProjectModalProps = {
   opened: boolean;
@@ -29,6 +32,7 @@ type CreateProjectModalProps = {
 };
 
 type CreateTaskFormState = {
+  templateId: TemplateId;
   name: string;
   shortName: string;
   application: string;
@@ -46,6 +50,7 @@ const TASK_NAME_MAX_LENGTH = 2000;
 const TASK_SHORT_NAME_MAX_LENGTH = 80;
 
 const emptyForm = (application = '', module = ''): CreateTaskFormState => ({
+  templateId: 'pmi',
   name: '',
   shortName: '',
   application,
@@ -99,6 +104,7 @@ export function CreateProjectModal({
     setNameError(null);
     setSubmitting(true);
     const ok = await projectActions.create({
+      templateId: form.templateId,
       name,
       shortName: form.shortName.trim(),
       application: form.application.trim(),
@@ -139,6 +145,17 @@ export function CreateProjectModal({
 
         <ScrollArea.Autosize mah="calc(90vh - 180px)" type="auto" offsetScrollbars>
           <Stack gap="md" pr="xs">
+            <Select
+              label="Шаблон документа"
+              data={listTemplates().map((item) => ({ value: item.id, label: item.title }))}
+              value={form.templateId}
+              allowDeselect={false}
+              onChange={(value) => {
+                if (value === 'pmi' || value === 'psi') {
+                  setForm((prev) => ({ ...prev, templateId: value }));
+                }
+              }}
+            />
             <ProseTextarea
               label="Название задачи"
               description={`Текстовое поле, до ${TASK_NAME_MAX_LENGTH} символов`}
@@ -183,6 +200,8 @@ export function CreateProjectModal({
               />
             </SimpleGrid>
 
+            {form.templateId === 'pmi' ? (
+            <>
             <ProseTextarea
               label="Объект испытаний"
               description="Описание объекта; ссылки задаются отдельно ниже"
@@ -262,6 +281,8 @@ export function CreateProjectModal({
                 minHeight={140}
               />
             </div>
+            </>
+            ) : null}
           </Stack>
         </ScrollArea.Autosize>
 

@@ -6,9 +6,12 @@ import {
   TC_TASK_FORMAT_VERSION,
   TC_TASK_MIME,
   type NamedLink,
+  type PsiResultItem,
+  type PsiStep,
   type RichTextContent,
   type TaskDocument,
 } from '@/domain/types';
+import { resolveTemplateId } from '@/templates/registry';
 import { nanoid } from 'nanoid';
 
 export type TcTaskFileEnvelope = {
@@ -114,6 +117,38 @@ function parseRichText(value: unknown): RichTextContent {
   return { html: '', plainText: '' };
 }
 
+function parsePsiSteps(value: unknown): PsiStep[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.flatMap((item) => {
+    if (!isRecord(item)) {
+      return [];
+    }
+    const id = typeof item.id === 'string' && item.id.trim() ? item.id : nanoid();
+    return [{ id, content: parseRichText(item.content) }];
+  });
+}
+
+function parsePsiResults(value: unknown): PsiResultItem[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.flatMap((item) => {
+    if (!isRecord(item)) {
+      return [];
+    }
+    const id = typeof item.id === 'string' && item.id.trim() ? item.id : nanoid();
+    return [
+      {
+        id,
+        expected: parseRichText(item.expected),
+        actual: parseRichText(item.actual),
+      },
+    ];
+  });
+}
+
 function parseNamedLinks(value: unknown): NamedLink[] {
   if (!Array.isArray(value)) {
     return [];
@@ -185,6 +220,7 @@ export function validateTaskDocument(value: unknown): TaskDocument {
         typeof meta.parentTaskId === 'string' && meta.parentTaskId.trim()
           ? meta.parentTaskId.trim()
           : null,
+      templateId: resolveTemplateId(meta.templateId),
     },
     testCases: (value.testCases as TaskDocument['testCases']).map((testCase) => ({
       ...testCase,
@@ -193,6 +229,8 @@ export function validateTaskDocument(value: unknown): TaskDocument {
       businessAnalyst:
         typeof testCase.businessAnalyst === 'string' ? testCase.businessAnalyst : '',
       steps: normalizeStepsContent((testCase as { steps?: unknown }).steps),
+      psiSteps: parsePsiSteps((testCase as { psiSteps?: unknown }).psiSteps),
+      psiResults: parsePsiResults((testCase as { psiResults?: unknown }).psiResults),
       includeInReport: testCase.includeInReport !== false,
       includeInRegression: testCase.includeInRegression === true,
       includeInTaskRegression: testCase.includeInTaskRegression === true,

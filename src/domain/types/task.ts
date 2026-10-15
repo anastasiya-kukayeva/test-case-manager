@@ -56,6 +56,8 @@ export type TaskMeta = {
   updatedAt: string;
   /** Parent task id when this task is nested under another */
   parentTaskId?: string | null;
+  /** Document template. Missing values are the current PMI (Pega) export. */
+  templateId?: 'pmi' | 'psi';
 };
 
 /**
