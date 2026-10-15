@@ -121,8 +121,8 @@ export function SettingsPage() {
         <Stack gap="md">
           <Text fw={600}>Хранение</Text>
           <TextInput
-            label="Папка задач по умолчанию"
-            description="Используется в диалогах «Открыть» и «Сохранить как»"
+            label="Рабочая папка"
+            description="Задачи (*.tctask) и справочники загружаются из этой папки. Новые файлы по умолчанию сохраняются сюда."
             value={settings.storage.defaultProjectsDirectory ?? ''}
             readOnly
             placeholder="Не задана"
@@ -264,7 +264,9 @@ export function SettingsPage() {
         <Stack gap="sm">
           <Text fw={600}>Данные и сброс</Text>
           <Text size="sm" c="dimmed">
-            Недавних задач в списке: {recentCount}
+            {settings.storage.defaultProjectsDirectory
+              ? `Задач в рабочей папке: ${recentCount}`
+              : `Недавних задач в списке: ${recentCount}`}
           </Text>
           <Group>
             <Button

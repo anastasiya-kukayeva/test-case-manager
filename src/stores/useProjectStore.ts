@@ -12,6 +12,8 @@ import type {
   TestCase,
 } from '@/domain/types';
 import { appStorageService } from '@/infrastructure/storage/appStorageService';
+import { isPathInsideDirectory, normalizeWorkspaceDirectory } from '@/infrastructure/workspace/paths';
+import { upsertWorkspaceTask } from '@/infrastructure/workspace/workspaceCatalog';
 import { useAppStore } from '@/stores/useAppStore';
 
 type ProjectStoreState = {
@@ -233,7 +235,23 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
   rememberRecent: async (project, options) => {
     const bumpToFront = options?.bumpToFront ?? true;
+    const workspaceDir = normalizeWorkspaceDirectory(
+      useAppStore.getState().settings.storage.defaultProjectsDirectory,
+    );
     try {
+      if (workspaceDir) {
+        if (!isPathInsideDirectory(project.filePath, workspaceDir)) {
+          return;
+        }
+        const current = useAppStore.getState().recentProjects;
+        useAppStore.getState().setRecentProjects(upsertWorkspaceTask(current, project));
+        if (appStorageService.isAvailable()) {
+          await appStorageService.addRecentProject(project, { bumpToFront });
+          await appStorageService.setLastOpenedProjectPath(project.filePath);
+        }
+        return;
+      }
+
       if (!appStorageService.isAvailable()) {
         const current = useAppStore.getState().recentProjects;
         const existingIndex = current.findIndex((item) => item.filePath === project.filePath);

@@ -156,20 +156,22 @@ function TaskTreeNodeRow({
                   <IconArrowsMove size={16} />
                 </ActionIcon>
               </Tooltip>
-              <Tooltip label="Убрать из списка">
-                <ActionIcon
-                  variant="subtle"
-                  color="red"
-                  aria-label="Убрать из списка"
-                  disabled={rowBusy}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onRemove?.(task.filePath, task.name);
-                  }}
-                >
-                  <IconTrash size={16} />
-                </ActionIcon>
-              </Tooltip>
+              {onRemove ? (
+                <Tooltip label="Убрать из списка">
+                  <ActionIcon
+                    variant="subtle"
+                    color="red"
+                    aria-label="Убрать из списка"
+                    disabled={rowBusy}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRemove(task.filePath, task.name);
+                    }}
+                  >
+                    <IconTrash size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              ) : null}
             </>
           ) : null}
         </Group>

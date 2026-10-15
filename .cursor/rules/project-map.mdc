@@ -1,0 +1,26 @@
+---
+description: Куда в репозитории лежат задачи, тест-кейсы, экспорт и Electron
+alwaysApply: true
+---
+
+# Карта репозитория
+
+Полное дерево и маршруты — в `AGENTS.md`. Сверься с ним до поиска по коду.
+
+В первой строке `AGENTS.md` стоит `Проверено: YYYY-MM-DD`. Если эта дата старше месяца, до работы по коду пройди `src/`, `electron/` и `scripts/`, сверь карту с репозиторием, обнови `AGENTS.md` и этот указатель, если они разъехались, и поставь сегодняшнюю дату в `Проверено:`.
+
+Слои: `src/domain` → `src/application` → `src/infrastructure` → `src/pages` и `src/components`. Диск только через `electron/` и `window.electronAPI`. Импорт из `src` — алиас `@/`. Роутер — `HashRouter`.
+
+В коде задача часто называется project (`useProjectStore`, `projectActions`). Файл — `*.tctask`, старый — `*.tcproj`.
+
+- Маршрут или меню: `src/routes/paths.ts`, `src/routes/AppRouter.tsx`, `src/layouts/AppSidebar.tsx`
+- Карточка задачи: `src/domain/types/task.ts`, `src/pages/TaskDetailPage.tsx`, `src/infrastructure/project/tcprojFormat.ts`
+- Модель тест-кейса: `src/domain/types/testCase.ts`, `src/domain/schemas/testCaseSchema.ts`
+- Редактор кейса: `src/pages/TestCaseEditorPage.tsx`, `src/components/editor/`
+- Список кейсов: `src/pages/TestCasesPage.tsx`, `src/components/testCases/`
+- CRUD кейсов: `src/application/testCases/testCaseActions.ts`, `src/stores/useProjectStore.ts`
+- Открытие и сохранение: `src/application/project/projectActions.ts`, `src/infrastructure/project/projectFileService.ts`
+- Экспорт ПМИ: `src/application/export/exportActions.ts`, `src/infrastructure/export/docxExportService.ts`
+- Регресс: `src/pages/RegressionPage.tsx` и соседние `Regression*`, `src/application/regression/`
+- Справочник: `src/stores/useDirectoryStore.ts`, `src/pages/DirectoryPage.tsx`, `src/domain/types/directory.ts`
+- Настройки: `src/pages/SettingsPage.tsx`, `src/stores/useAppStore.ts`, `electron/store.ts`
