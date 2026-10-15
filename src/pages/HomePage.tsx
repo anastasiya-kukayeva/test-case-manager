@@ -1,11 +1,5 @@
-import { Button, Card, Group, Stack, Text, Title } from '@mantine/core';
-import {
-  IconChecklist,
-  IconFileDescription,
-  IconFolderOpen,
-  IconFolderPlus,
-  IconSettings,
-} from '@tabler/icons-react';
+import { Button, Group, Stack, Text, Title } from '@mantine/core';
+import { IconFolderOpen, IconFolderPlus } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { projectActions } from '@/application/project/projectActions';
@@ -46,53 +40,7 @@ export function HomePage() {
           >
             Открыть задачу
           </Button>
-          <Button
-            variant="default"
-            leftSection={<IconChecklist size={16} />}
-            onClick={() => void navigate(AppRoutes.tasks)}
-          >
-            К задачам
-          </Button>
-          <Button
-            variant="default"
-            leftSection={<IconFileDescription size={16} />}
-            onClick={() => void navigate(AppRoutes.allTestCases)}
-          >
-            Тест-кейсы
-          </Button>
         </Group>
-      </FadeIn>
-
-      <FadeIn delay={0.08}>
-        <Card withBorder padding="lg" radius="md" maw={420}>
-          <Stack gap="sm">
-            <Text fw={600}>Быстрые действия</Text>
-            <Button
-              variant="light"
-              justify="flex-start"
-              leftSection={<IconChecklist size={16} />}
-              onClick={() => void navigate(AppRoutes.tasks)}
-            >
-              Управление задачами
-            </Button>
-            <Button
-              variant="light"
-              justify="flex-start"
-              leftSection={<IconFileDescription size={16} />}
-              onClick={() => void navigate(AppRoutes.allTestCases)}
-            >
-              Список тест-кейсов
-            </Button>
-            <Button
-              variant="light"
-              justify="flex-start"
-              leftSection={<IconSettings size={16} />}
-              onClick={() => void navigate(AppRoutes.settings)}
-            >
-              Настройки и экспорт
-            </Button>
-          </Stack>
-        </Card>
       </FadeIn>
 
       <CreateProjectModal
