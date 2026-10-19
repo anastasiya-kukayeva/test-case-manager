@@ -10,7 +10,13 @@ import {
   Tooltip,
   ActionIcon,
 } from '@mantine/core';
-import { IconAlertCircle, IconArrowLeft, IconFileImport, IconFileWord, IconRefresh } from '@tabler/icons-react';
+import {
+  IconAlertCircle,
+  IconArrowLeft,
+  IconFileImport,
+  IconFileWord,
+  IconRefresh,
+} from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -23,6 +29,7 @@ import {
   type RegressionMode,
   type RegressionTaskGroup,
 } from '@/application/regression/loadRegressionGroups';
+import { regressionCaseLabel } from '@/application/regression/regressionCaseLabel';
 import { regressionCaseMatches } from '@/application/regression/regressionSearch';
 import { exportActions } from '@/application/export/exportActions';
 import {
@@ -93,7 +100,9 @@ function toDisplayRows(
       id: item.id,
       number: String(index + 1),
       title: item.title,
-      goal: item.goal,
+      goal: item.goal
+        ? { ...item.goal, plainText: regressionCaseLabel(item.goal, item.title) }
+        : item.goal,
       includeInReport: item.includeInReport !== false,
       includeInRegression: item.includeInRegression,
       includeInTaskRegression: item.includeInTaskRegression,
@@ -107,7 +116,11 @@ function toDisplayRows(
 }
 
 export function RegressionScopeCasesPage() {
-  const { mode: modeParam, scope, scopeId: scopeIdParam } = useParams<{
+  const {
+    mode: modeParam,
+    scope,
+    scopeId: scopeIdParam,
+  } = useParams<{
     mode: string;
     scope: string;
     scopeId: string;
@@ -339,7 +352,8 @@ export function RegressionScopeCasesPage() {
           .map((item) => ({
             applicationName: item.application,
             moduleName: item.module === UNASSIGNED_MODULE ? '' : item.module,
-            text: item.goal?.plainText?.trim() || '',
+            text: regressionCaseLabel(item.goal, item.title),
+            html: item.goal?.html,
           })),
       });
     } finally {
@@ -562,8 +576,7 @@ export function RegressionScopeCasesPage() {
 
   const title = REGRESSION_MODE_LABELS[mode];
   const checkboxLabel = mode === 'task' ? 'Добавить в регресс задачи?' : 'Добавить в регресс?';
-  const duplicateLabel =
-    duplicateSource?.goal?.plainText?.trim() || duplicateSource?.title?.trim() || '';
+  const duplicateLabel = regressionCaseLabel(duplicateSource?.goal, duplicateSource?.title);
 
   return (
     <Stack gap="lg">

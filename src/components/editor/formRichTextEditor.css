@@ -38,6 +38,15 @@
   color: inherit;
 }
 
+.tcm-rte-prose a,
+.tcm-rich-html a,
+.tcm-field-description a,
+.tcm-field-link {
+  color: var(--mantine-color-blue-7);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .tcm-rich-text-editor .tiptap,
 .tcm-rich-text-editor .ProseMirror,
 .tcm-rte-prose {

@@ -66,6 +66,21 @@ describe('htmlToExportBlocks', () => {
       { type: 'code', text: 'select 1', language: 'sql' },
       { type: 'log', text: 'error' },
     ]);
+    const linked = htmlToExportBlocks(
+      '<p>Проверить <a href="https://jira.example/browse/1">форму https://jira.example/browse/1</a></p>',
+    );
+    expect(linked[0]).toMatchObject({ type: 'text', text: 'Проверить форму' });
+    if (linked[0]?.type === 'text') {
+      expect(linked[0].runs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            text: 'форму',
+            link: 'https://jira.example/browse/1',
+          }),
+        ]),
+      );
+    }
+
     expect(listDepthFromExportLine('  ▪ вложенный')).toBe(1);
     expect(listDepthFromExportLine('обычный текст')).toBeUndefined();
   });

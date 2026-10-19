@@ -1,3 +1,5 @@
+import { visibleAnchor } from '@/domain/utils/embeddedLinks';
+
 function bulletMarker(depth: number): string {
   if (depth <= 0) {
     return '•';
@@ -57,7 +59,9 @@ function toRomanIndex(index: number): string {
 function formatOrderedMarker(index: number, depth: number, typeAttr: string | null): string {
   const explicit = typeAttr?.trim();
   const type =
-    explicit && explicit !== '1' ? explicit : ['1', 'a', 'i', '1', 'a'][Math.min(Math.max(depth, 0), 4)];
+    explicit && explicit !== '1'
+      ? explicit
+      : ['1', 'a', 'i', '1', 'a'][Math.min(Math.max(depth, 0), 4)];
   if (type === 'a') {
     return `${toAlphaIndex(index)}.`;
   }
@@ -90,6 +94,8 @@ export type ExportTextStyle = {
   color?: string;
   /** Background color, RRGGBB without a hash. */
   highlight?: string;
+  /** Web address. The run text is the visible name. */
+  link?: string;
 };
 
 export type ExportTextRun = {
@@ -102,7 +108,8 @@ function sameExportStyle(left: ExportTextStyle, right: ExportTextStyle): boolean
     Boolean(left.italics) === Boolean(right.italics) &&
     Boolean(left.underline) === Boolean(right.underline) &&
     (left.color ?? '') === (right.color ?? '') &&
-    (left.highlight ?? '') === (right.highlight ?? '')
+    (left.highlight ?? '') === (right.highlight ?? '') &&
+    (left.link ?? '') === (right.link ?? '')
   );
 }
 
@@ -213,7 +220,9 @@ function withElementStyle(element: HTMLElement, parent: ExportTextStyle): Export
   }
 
   const color = cssColorToHex(
-    element.style.color || styleDecl(element, 'color') || (tag === 'font' ? element.getAttribute('color') : ''),
+    element.style.color ||
+      styleDecl(element, 'color') ||
+      (tag === 'font' ? element.getAttribute('color') : ''),
   );
   if (color) {
     next.color = color;
@@ -225,13 +234,19 @@ function withElementStyle(element: HTMLElement, parent: ExportTextStyle): Export
       element.getAttribute('data-color') ||
       '',
   );
-  if (highlight && (tag === 'mark' || styleDecl(element, 'background-color') || element.style.backgroundColor)) {
+  if (
+    highlight &&
+    (tag === 'mark' || styleDecl(element, 'background-color') || element.style.backgroundColor)
+  ) {
     next.highlight = highlight;
   }
   return next;
 }
 
-function normalizeExportRuns(runs: ExportTextRun[], preserveLeadingIndent: boolean): ExportTextRun[] {
+function normalizeExportRuns(
+  runs: ExportTextRun[],
+  preserveLeadingIndent: boolean,
+): ExportTextRun[] {
   const cleaned = runs
     .map((run) => ({
       ...run,
@@ -289,6 +304,46 @@ function walkExportList(
   }
 }
 
+function appendAnchorRuns(
+  node: HTMLElement,
+  style: ExportTextStyle,
+  runs: ExportTextRun[],
+  images: Array<{ dataUrl: string; alt?: string }>,
+) {
+  const innerRuns: ExportTextRun[] = [];
+  const ignoredLists: HTMLElement[] = [];
+  for (const child of Array.from(node.childNodes)) {
+    collectInline(child, style, innerRuns, ignoredLists, images);
+  }
+  const visible = visibleAnchor({
+    href: node.getAttribute('href') ?? '',
+    title: node.getAttribute('title') ?? '',
+    text: innerRuns.map((run) => run.text).join(''),
+  });
+  if (!visible.text.trim()) {
+    return;
+  }
+  const original = innerRuns
+    .map((run) => run.text)
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (visible.href && original === visible.text) {
+    for (const run of innerRuns) {
+      pushExportRun(runs, run.text, {
+        bold: run.bold,
+        italics: run.italics,
+        underline: run.underline,
+        color: run.color,
+        highlight: run.highlight,
+        link: visible.href,
+      });
+    }
+    return;
+  }
+  pushExportRun(runs, visible.text, visible.href ? { ...style, link: visible.href } : style);
+}
+
 function collectInline(
   node: Node,
   style: ExportTextStyle,
@@ -320,6 +375,10 @@ function collectInline(
     return;
   }
   if (tag === 'pre') {
+    return;
+  }
+  if (tag === 'a') {
+    appendAnchorRuns(node, style, runs, images);
     return;
   }
   const next = withElementStyle(node, style);
@@ -435,6 +494,17 @@ export function htmlToExportBlocks(html: string): RichExportBlock[] {
         pushPre(node);
         return;
       }
+      if (tag === 'a') {
+        const linkImages: Array<{ dataUrl: string; alt?: string }> = [];
+        appendAnchorRuns(node, style, runs, linkImages);
+        if (linkImages.length > 0) {
+          flush();
+          for (const image of linkImages) {
+            blocks.push({ type: 'image', dataUrl: image.dataUrl, alt: image.alt });
+          }
+        }
+        return;
+      }
       const next = withElementStyle(node, style);
       for (const child of Array.from(node.childNodes)) {
         visit(child, next);
@@ -479,7 +549,9 @@ export function htmlToExportBlocks(html: string): RichExportBlock[] {
       return;
     }
     if (BLOCK_TAGS.has(tag)) {
-      const hasNestedBlock = Boolean(node.querySelector('p, div, h1, h2, h3, h4, blockquote, ul, ol, pre'));
+      const hasNestedBlock = Boolean(
+        node.querySelector('p, div, h1, h2, h3, h4, blockquote, ul, ol, pre'),
+      );
       if (hasNestedBlock && tag !== 'li') {
         for (const child of Array.from(node.childNodes)) {
           walk(child);
@@ -588,7 +660,8 @@ export async function decodeDataUrlImage(dataUrl: string): Promise<DecodedImage 
 
   const size = await new Promise<{ width: number; height: number }>((resolve) => {
     const image = new Image();
-    image.onload = () => resolve({ width: image.naturalWidth || 800, height: image.naturalHeight || 600 });
+    image.onload = () =>
+      resolve({ width: image.naturalWidth || 800, height: image.naturalHeight || 600 });
     image.onerror = () => resolve({ width: 800, height: 600 });
     image.src = dataUrl;
   });
@@ -639,9 +712,7 @@ export function uint8ArrayToBase64(bytes: Uint8Array): string {
  * Uses leading spaces first; bullet shape is a fallback if spaces were stripped.
  */
 export function listDepthFromExportLine(text: string): number | undefined {
-  const match = text.match(
-    /^(\s*)(?:[•▪▴◦◆]|(?:\d+|[a-z]{1,4}|[ivxlcdm]{1,8})\.)(?:\s|$)/i,
-  );
+  const match = text.match(/^(\s*)(?:[•▪▴◦◆]|(?:\d+|[a-z]{1,4}|[ivxlcdm]{1,8})\.)(?:\s|$)/i);
   if (!match) {
     return undefined;
   }

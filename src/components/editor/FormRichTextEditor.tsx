@@ -13,6 +13,7 @@ import {
 } from '@tabler/icons-react';
 import Color from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
+import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { TextStyle } from '@tiptap/extension-text-style';
 import Underline from '@tiptap/extension-underline';
@@ -24,12 +25,10 @@ import { extractImageFilesFromClipboard } from '@/application/testCases/screensh
 import { applyTypographyInEditor } from '@/application/text/russianTypography';
 import { DeletableCodeBlock } from '@/components/editor/DeletableCodeBlock';
 import { DeletableImage } from '@/components/editor/DeletableImage';
-import {
-  canSinkListItem,
-  NestedListItem,
-} from '@/components/editor/nestedListItem';
+import { canSinkListItem, NestedListItem } from '@/components/editor/nestedListItem';
 import { RichTextColorControls } from '@/components/editor/RichTextColorControls';
 import { normalizePastedHtml } from '@/components/editor/pasteFormatting';
+import { normalizeEmbeddedLinkHtml } from '@/domain/utils/embeddedLinks';
 import { toggleFenceBlock } from '@/components/editor/toggleFenceBlock';
 import type { RichTextContent } from '@/domain/types';
 import 'react-photo-view/dist/react-photo-view.css';
@@ -87,7 +86,12 @@ async function insertImageFiles(editor: Editor | null | undefined, files: File[]
     const after = selection.to;
     const next = after < editor.state.doc.content.size ? editor.state.doc.nodeAt(after) : null;
     if (!next?.isTextblock) {
-      editor.chain().focus().insertContentAt(after, { type: 'paragraph' }).setTextSelection(after + 1).run();
+      editor
+        .chain()
+        .focus()
+        .insertContentAt(after, { type: 'paragraph' })
+        .setTextSelection(after + 1)
+        .run();
     }
   }
 }
@@ -153,6 +157,16 @@ function createExtensions(placeholder: string) {
         class: 'tcm-rte-image',
       },
     }),
+    Link.configure({
+      autolink: false,
+      openOnClick: true,
+      linkOnPaste: true,
+      HTMLAttributes: {
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        class: 'tcm-field-link',
+      },
+    }),
     Placeholder.configure({ placeholder }),
   ];
 }
@@ -197,7 +211,7 @@ export function FormRichTextEditor({
       immediatelyRender: false,
       shouldRerenderOnTransaction: false,
       extensions,
-      content: value.html || '',
+      content: normalizeEmbeddedLinkHtml(value.html || ''),
       editorProps: {
         attributes: {
           class: `tcm-rte-prose${allowImages ? ' tcm-rte-prose--zoomable-images' : ''}`,
@@ -228,7 +242,7 @@ export function FormRichTextEditor({
           openImageLightbox(src);
           return true;
         },
-        transformPastedHTML: (html) => normalizePastedHtml(html),
+        transformPastedHTML: (html) => normalizeEmbeddedLinkHtml(normalizePastedHtml(html)),
         handlePaste: (_view, event) => {
           if (!allowImagesRef.current) {
             return false;
@@ -260,7 +274,7 @@ export function FormRichTextEditor({
         if (current.isDestroyed) {
           return;
         }
-        const html = current.getHTML();
+        const html = normalizeEmbeddedLinkHtml(current.getHTML());
         onChangeRef.current({
           html: html === '<p></p>' ? '' : html,
           plainText: htmlToPlainText(html),
@@ -445,7 +459,14 @@ export function FormRichTextEditor({
         <EditorContent editor={editor} />
       </div>
       {error ? (
-        <div style={{ color: 'var(--mantine-color-error)', fontSize: 12, marginTop: 4, padding: '0 8px 8px' }}>
+        <div
+          style={{
+            color: 'var(--mantine-color-error)',
+            fontSize: 12,
+            marginTop: 4,
+            padding: '0 8px 8px',
+          }}
+        >
           {error}
         </div>
       ) : null}

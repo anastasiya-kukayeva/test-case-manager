@@ -19,6 +19,7 @@ import type { CSSProperties } from 'react';
 import { IncludeInReportControl } from '@/components/testCases/IncludeInReportControl';
 import { TestOutcomeControl } from '@/components/testCases/TestOutcomeControl';
 import type { TestCase, TestResultOutcome } from '@/domain/types';
+import { fieldDescriptionHtml } from '@/domain/utils/embeddedLinks';
 import '@/components/testCases/testCasesTable.css';
 
 export type TestCasesListRow = Pick<
@@ -108,14 +109,14 @@ function SortableTestCaseRow({
   });
 
   const label = goalLabel(row, preferTitle);
+  const descriptionHtml = preferTitle ? '' : fieldDescriptionHtml(row.goal);
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     cursor: 'pointer',
   };
 
-  const actionsWidth =
-    48 + (onDuplicate ? 36 : 0) + (onDelete ? 36 : 0);
+  const actionsWidth = 48 + (onDuplicate ? 36 : 0) + (onDelete ? 36 : 0);
 
   return (
     <Table.Tr
@@ -150,9 +151,35 @@ function SortableTestCaseRow({
         </Group>
       </Table.Td>
       <Table.Td>
-        <Text lineClamp={2} title={label}>
-          {label}
-        </Text>
+        {descriptionHtml ? (
+          <Text
+            component="div"
+            lineClamp={2}
+            title={label}
+            className="tcm-field-description"
+            dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+            onClick={(event) => {
+              const target = event.target;
+              if (!(target instanceof Element)) {
+                return;
+              }
+              const anchor = target.closest('a');
+              if (!anchor) {
+                return;
+              }
+              event.preventDefault();
+              event.stopPropagation();
+              const href = anchor.getAttribute('href');
+              if (href) {
+                window.open(href, '_blank', 'noopener,noreferrer');
+              }
+            }}
+          />
+        ) : (
+          <Text lineClamp={2} title={label}>
+            {label}
+          </Text>
+        )}
         {row.sourceLabel ? (
           <Text size="xs" c="dimmed" lineClamp={1}>
             {row.sourceLabel}
@@ -247,11 +274,7 @@ function SortableTestCaseRow({
       >
         <Group gap={4} wrap="nowrap" justify="flex-end">
           <Tooltip label="Открыть">
-            <ActionIcon
-              variant="subtle"
-              loading={openingId === row.id}
-              onClick={() => onOpen(row)}
-            >
+            <ActionIcon variant="subtle" loading={openingId === row.id} onClick={() => onOpen(row)}>
               <IconEdit size={16} />
             </ActionIcon>
           </Tooltip>
@@ -330,8 +353,7 @@ export function TestCasesListTable({
   const showRegression = Boolean(onRegressionChange);
   const columnCount = 4 + (showIncludeInReport ? 1 : 0) + (showRegression ? 2 : 0);
   const headRowSpan = showRegression ? 2 : undefined;
-  const actionsColWidth =
-    56 + (onDuplicate ? 36 : 0) + (onDelete ? 36 : 0);
+  const actionsColWidth = 56 + (onDuplicate ? 36 : 0) + (onDelete ? 36 : 0);
 
   const table = (
     <Box className="tcm-table-wrap">

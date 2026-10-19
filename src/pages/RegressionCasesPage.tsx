@@ -1,8 +1,19 @@
-import { Alert, Button, Card, Group, Stack, Text, Title, Tooltip, UnstyledButton } from '@mantine/core';
+import {
+  Alert,
+  Button,
+  Card,
+  Group,
+  Stack,
+  Text,
+  Title,
+  Tooltip,
+  UnstyledButton,
+} from '@mantine/core';
 import { IconArrowLeft, IconInfoCircle } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toTestCaseRows } from '@/application/testCases/filterTestCases';
+import { regressionCaseLabel } from '@/application/regression/regressionCaseLabel';
 import { matchesPartialQuery } from '@/application/regression/regressionSearch';
 import {
   isRegressionMode,
@@ -61,6 +72,9 @@ export function RegressionCasesPage() {
       .map((row, index) => ({
         ...row,
         number: String(index + 1),
+        goal: row.goal
+          ? { ...row.goal, plainText: regressionCaseLabel(row.goal, row.title) }
+          : row.goal,
       }));
   }, [allRows, current?.document.meta, searchQuery]);
 
@@ -86,10 +100,8 @@ export function RegressionCasesPage() {
   const duplicateSourceNumber = current.document.testCases.find(
     (item) => item.id === duplicateSource?.id,
   )?.number;
-  const duplicateLabel =
-    duplicateSource?.goal?.plainText?.trim() || duplicateSource?.title?.trim() || '';
-  const checkboxLabel =
-    mode === 'task' ? 'Добавить в регресс задачи?' : 'Добавить в регресс?';
+  const duplicateLabel = regressionCaseLabel(duplicateSource?.goal, duplicateSource?.title);
+  const checkboxLabel = mode === 'task' ? 'Добавить в регресс задачи?' : 'Добавить в регресс?';
 
   return (
     <Stack gap="lg">

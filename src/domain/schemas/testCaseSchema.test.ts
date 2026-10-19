@@ -19,6 +19,8 @@ function validForm(partial?: Partial<TestCaseEditorFormValues>): TestCaseEditorF
     goalImages: [],
     preconditions: '',
     steps: { html: '', plainText: '' },
+    psiSteps: [],
+    psiResults: [],
     verificationResult: { html: '', plainText: '' },
     verificationAttachments: [],
     testOutcome: null,

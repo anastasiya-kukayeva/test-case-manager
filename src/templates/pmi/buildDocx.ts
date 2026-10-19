@@ -8,7 +8,6 @@
   LeaderType,
   Packer,
   Paragraph,
-  SimpleField,
   Tab,
   TabStopPosition,
   TabStopType,
@@ -45,10 +44,8 @@ export type PmiDocxExportContext = {
 type TocEntry = {
   id: string;
   title: string;
-  /** Absolute page number in the generated document */
+  /** Absolute page number written into the file as text. */
   page: number;
-  /** Resolve the page via Word PAGEREF when the section is not on a fixed page */
-  pageRef?: boolean;
 };
 
 /** Page 1 = title, page 2 = TOC, body starts at page 3 (sections flow continuously). */
@@ -148,9 +145,7 @@ function tocParagraphs(entries: TocEntry[]): FileChild[] {
             font: FONT,
             size: SIZE_TOC,
           }),
-          entry.pageRef
-            ? new SimpleField(` PAGEREF ${entry.id} \\h `, String(entry.page))
-            : run(String(entry.page), { size: SIZE_TOC, bold: true }),
+          run(String(entry.page), { size: SIZE_TOC, bold: true }),
         ],
       }),
     );
@@ -299,7 +294,6 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
       id: 'toc-risks',
       title: 'Риски и ограничения',
       page: estimateRisksTocPage(testCases.length, sectionPlan.length > 0),
-      pageRef: true,
     });
   }
 
@@ -337,7 +331,7 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
             spacing: { before: 240, after: 100 },
             children: [
               run('Тест №', { bold: true, size: SIZE_H2, underline: {} }),
-              run(numberLabel, { bold: true, size: SIZE_H2 }),
+              run(numberLabel, { bold: true, size: SIZE_H2, underline: {} }),
             ],
           }),
         );
@@ -428,9 +422,6 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
     creator: 'Test Case Manager',
     title: taskName,
     description: taskName,
-    features: {
-      updateFields: true,
-    },
     styles: {
       default: {
         document: {

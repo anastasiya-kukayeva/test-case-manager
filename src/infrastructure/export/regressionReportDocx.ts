@@ -12,6 +12,7 @@ import {
   WidthType,
   type FileChild,
 } from 'docx';
+import { htmlToExportBlocks, type ExportTextRun } from '@/infrastructure/export/exportUtils';
 
 const FONT = 'Times New Roman';
 const SIZE_TITLE = 32;
@@ -47,6 +48,8 @@ export type RegressionReportCase = {
   moduleName: string;
   /** Test case goal, regular text after the bold prefix. */
   text: string;
+  /** Goal HTML. A link inside it is exported as a hyperlink with its name. */
+  html?: string;
 };
 
 export type RegressionReportHeader = {
@@ -63,7 +66,10 @@ export type RegressionReportHeader = {
   cases: RegressionReportCase[];
 };
 
-function run(text: string, options: { bold?: boolean; size?: number; color?: string; underline?: object } = {}) {
+function run(
+  text: string,
+  options: { bold?: boolean; size?: number; color?: string; underline?: object } = {},
+) {
   return new TextRun({
     font: FONT,
     size: options.size ?? SIZE_BODY,
@@ -125,7 +131,10 @@ function bodyParagraph(text: string): Paragraph {
   });
 }
 
-function cellParagraph(children: TextRun[], align: (typeof AlignmentType)[keyof typeof AlignmentType] = AlignmentType.LEFT): Paragraph {
+function cellParagraph(
+  children: Array<TextRun | ExternalHyperlink>,
+  align: (typeof AlignmentType)[keyof typeof AlignmentType] = AlignmentType.LEFT,
+): Paragraph {
   return new Paragraph({
     alignment: align,
     spacing: { after: 0 },
@@ -154,23 +163,39 @@ function textCell(
   });
 }
 
+function runsToChildren(runs: ExportTextRun[]): Array<TextRun | ExternalHyperlink> {
+  return runs.map((piece) => {
+    const textRun = run(piece.text || ' ', {
+      bold: piece.bold,
+      color: piece.link ? (piece.color ?? '0563C1') : piece.color,
+      underline: piece.link || piece.underline ? {} : undefined,
+    });
+    if (!piece.link) {
+      return textRun;
+    }
+    return new ExternalHyperlink({
+      link: piece.link,
+      children: [textRun],
+    });
+  });
+}
+
 function caseDescriptionCell(item: RegressionReportCase, width: number): TableCell {
   const labels = [item.applicationName.trim(), item.moduleName.trim()].filter(Boolean);
-  const text = item.text.trim();
-  const children: TextRun[] = [];
-  if (labels.length > 0) {
-    children.push(run(`${labels.join('. ')}. `, { bold: true }));
-  }
-  if (text) {
-    children.push(run(text));
-  }
-  if (children.length === 0) {
-    children.push(run(''));
-  }
+  const prefix = labels.length > 0 ? [run(`${labels.join('. ')}. `, { bold: true })] : [];
+  const blocks = (item.html ? htmlToExportBlocks(item.html) : []).filter(
+    (block) => block.type === 'text',
+  );
+  const paragraphs =
+    blocks.length > 0
+      ? blocks.map((block, index) =>
+          cellParagraph([...(index === 0 ? prefix : []), ...runsToChildren(block.runs)]),
+        )
+      : [cellParagraph([...prefix, run(item.text.trim())])];
   return new TableCell({
     width: { size: width, type: WidthType.DXA },
     margins: { top: 60, bottom: 60, left: 80, right: 80 },
-    children: [cellParagraph(children)],
+    children: paragraphs,
   });
 }
 
@@ -239,7 +264,9 @@ function environmentParagraph(environmentName: string): Paragraph {
   });
 }
 
-export async function buildRegressionReportDocx(header: RegressionReportHeader): Promise<Uint8Array> {
+export async function buildRegressionReportDocx(
+  header: RegressionReportHeader,
+): Promise<Uint8Array> {
   const lines = regressionReportHeaderLines(header);
   const children: FileChild[] = [
     new Paragraph({

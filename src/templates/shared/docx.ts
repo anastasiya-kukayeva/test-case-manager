@@ -1,5 +1,6 @@
 import {
   AlignmentType,
+  ExternalHyperlink,
   Footer,
   ImageRun,
   PageBreak,
@@ -51,8 +52,7 @@ export const SIZE_BODY = 24;
 export const SIZE_SMALL = 20;
 export const SIZE_FOOTER = 20;
 
-export const PAGE_CONTENT_WIDTH_TWIPS =
-  PAGE_WIDTH_TWIPS - PAGE_MARGIN.left - PAGE_MARGIN.right;
+export const PAGE_CONTENT_WIDTH_TWIPS = PAGE_WIDTH_TWIPS - PAGE_MARGIN.left - PAGE_MARGIN.right;
 
 export function run(text: string, options: IRunOptions = {}): TextRun {
   return new TextRun({
@@ -79,9 +79,7 @@ function styledRun(piece: ExportTextRun): TextRun {
     italics: piece.italics || undefined,
     underline: piece.underline ? {} : undefined,
     color: piece.color,
-    shading: piece.highlight
-      ? { type: ShadingType.CLEAR, fill: piece.highlight }
-      : undefined,
+    shading: piece.highlight ? { type: ShadingType.CLEAR, fill: piece.highlight } : undefined,
   });
 }
 
@@ -112,6 +110,21 @@ function listLineIndentLeft(text: string): number | undefined {
   return 360 + depth * 360;
 }
 
+export function exportRunsToChildren(runs: ExportTextRun[]): Array<TextRun | ExternalHyperlink> {
+  return runs.map((piece) => {
+    const textRun = styledRun(
+      piece.link ? { ...piece, underline: true, color: piece.color ?? '0563C1' } : piece,
+    );
+    if (!piece.link) {
+      return textRun;
+    }
+    return new ExternalHyperlink({
+      link: piece.link,
+      children: [textRun],
+    });
+  });
+}
+
 function paragraphFromRuns(
   text: string,
   runs: ExportTextRun[],
@@ -119,12 +132,10 @@ function paragraphFromRuns(
 ): Paragraph {
   const indentLeft = listLineIndentLeft(text);
   const visible = indentLeft !== undefined ? trimLeadingRuns(runs) : runs;
-  const body = (visible.length > 0 ? visible : [{ text: text || ' ' }]).map((piece) => styledRun(piece));
+  const body = exportRunsToChildren(visible.length > 0 ? visible : [{ text: text || ' ' }]);
   return new Paragraph({
     alignment: options?.alignLeft ? AlignmentType.LEFT : AlignmentType.BOTH,
-    spacing: options?.spacingBefore
-      ? { before: options.spacingBefore, after: 60 }
-      : { after: 60 },
+    spacing: options?.spacingBefore ? { before: options.spacingBefore, after: 60 } : { after: 60 },
     indent: indentLeft !== undefined ? { left: indentLeft } : undefined,
     children: [...(options?.prefix ?? []), ...body],
   });
@@ -137,7 +148,10 @@ function stepNumberParagraph(leadIn: string, spacingBefore?: number): Paragraph 
   });
 }
 
-export function bodyLines(text: string, options?: { indent?: boolean; indentLeft?: number }): Paragraph[] {
+export function bodyLines(
+  text: string,
+  options?: { indent?: boolean; indentLeft?: number },
+): Paragraph[] {
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trimEnd())
@@ -149,9 +163,7 @@ export function bodyLines(text: string, options?: { indent?: boolean; indentLeft
 
   return lines.map((line) => {
     const indentLeft =
-      options?.indentLeft ??
-      (options?.indent ? 360 : undefined) ??
-      listLineIndentLeft(line);
+      options?.indentLeft ?? (options?.indent ? 360 : undefined) ?? listLineIndentLeft(line);
     return new Paragraph({
       alignment: AlignmentType.BOTH,
       spacing: { after: 60 },
@@ -319,13 +331,13 @@ export async function fromRichContent(
         continue;
       }
       pushLeadOnOwnLine();
-        out.push(
-          ...(await imageParagraphs(
-            block.dataUrl,
-            options.imageMaxWidthPx,
-            options.imageMaxHeightPx,
-          )),
-        );
+      out.push(
+        ...(await imageParagraphs(
+          block.dataUrl,
+          options.imageMaxWidthPx,
+          options.imageMaxHeightPx,
+        )),
+      );
       continue;
     }
 
@@ -337,9 +349,7 @@ export async function fromRichContent(
       out.push(
         new Paragraph({
           spacing: { before: 80, after: 40 },
-          children: [
-            run(block.language ? `Код (${block.language}):` : 'Код:', { bold: true }),
-          ],
+          children: [run(block.language ? `Код (${block.language}):` : 'Код:', { bold: true })],
         }),
       );
       for (const line of (block.text || '—').split(/\r?\n/)) {
@@ -448,4 +458,3 @@ export function pageOfFooter(): Footer {
     ],
   });
 }
-

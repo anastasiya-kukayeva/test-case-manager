@@ -1,7 +1,8 @@
 import { Badge, Divider, Group, Image, Modal, Stack, Text, Title } from '@mantine/core';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type MouseEvent } from 'react';
 import { PhotoProvider, PhotoSlider, PhotoView } from 'react-photo-view';
 import type { TestCaseEditorFormValues } from '@/domain/schemas/testCaseSchema';
+import { normalizeEmbeddedLinkHtml } from '@/domain/utils/embeddedLinks';
 import { isImageAttachment } from '@/domain/types/attachment';
 import 'react-photo-view/dist/react-photo-view.css';
 import '@/components/editor/formRichTextEditor.css';
@@ -12,6 +13,33 @@ type TestCasePreviewProps = {
   values: TestCaseEditorFormValues;
   taskName?: string;
 };
+
+function openFieldLink(event: MouseEvent<HTMLElement>) {
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    return;
+  }
+  const anchor = target.closest('a');
+  if (!anchor) {
+    return;
+  }
+  const href = anchor.getAttribute('href');
+  if (!href) {
+    return;
+  }
+  event.preventDefault();
+  window.open(href, '_blank', 'noopener,noreferrer');
+}
+
+function RichHtml({ html }: { html: string }) {
+  return (
+    <div
+      className="tcm-rich-html"
+      onClick={openFieldLink}
+      dangerouslySetInnerHTML={{ __html: normalizeEmbeddedLinkHtml(html) || '<p>—</p>' }}
+    />
+  );
+}
 
 function extractImageSrcs(html: string): string[] {
   const doc = new DOMParser().parseFromString(html || '', 'text/html');
@@ -48,7 +76,7 @@ export function TestCasePreview({ opened, onClose, values, taskName }: TestCaseP
         </div>
 
         <Divider label="Цель" labelPosition="left" />
-        <div dangerouslySetInnerHTML={{ __html: values.goal.html || '<p>—</p>' }} />
+        <RichHtml html={values.goal.html} />
         <PhotoProvider>
           <Group>
             {values.goalImages.filter(isImageAttachment).map((image) => (
@@ -70,12 +98,13 @@ export function TestCasePreview({ opened, onClose, values, taskName }: TestCaseP
         <Text style={{ whiteSpace: 'pre-wrap' }}>{values.preconditions || '—'}</Text>
 
         <Divider label="Шаги тестирования" labelPosition="left" />
-        <div dangerouslySetInnerHTML={{ __html: values.steps.html || '<p>—</p>' }} />
+        <RichHtml html={values.steps.html} />
 
         <Divider label="Результат проверки" labelPosition="left" />
         <div
           className="tcm-rich-text-editor tcm-rich-text-preview--zoomable"
           onClick={(event) => {
+            openFieldLink(event);
             const target = event.target;
             if (!(target instanceof HTMLImageElement)) {
               return;
@@ -90,7 +119,7 @@ export function TestCasePreview({ opened, onClose, values, taskName }: TestCaseP
             setLightboxOpen(true);
           }}
           dangerouslySetInnerHTML={{
-            __html: values.verificationResult.html || '<p>—</p>',
+            __html: normalizeEmbeddedLinkHtml(values.verificationResult.html) || '<p>—</p>',
           }}
         />
 
