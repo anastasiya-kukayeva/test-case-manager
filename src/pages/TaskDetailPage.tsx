@@ -146,7 +146,7 @@ export function TaskDetailPage() {
               size="sm"
               variant="light"
               leftSection={<IconDeviceFloppy size={14} />}
-              onClick={() => void leaveTaskPage(AppRoutes.tasks)}
+              onClick={() => void projectActions.save()}
             >
               Сохранить
             </Button>

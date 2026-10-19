@@ -4,7 +4,11 @@ import { notifyExportSaved } from '@/application/export/notifyExportSaved';
 import { DEFAULT_APP_SETTINGS, type TaskDocument, type TestCase } from '@/domain/types';
 import { buildPmiDocx, buildTestCaseDocx } from '@/infrastructure/export/docxExportService';
 import { resolveTemplateId } from '@/templates/registry';
-import { buildPsiDocx } from '@/templates/psi/buildDocx';
+import {
+  buildPsiCombinedDocx,
+  buildPsiDocx,
+  type PsiCombinedModule,
+} from '@/templates/psi/buildDocx';
 import {
   buildRegressionReportDocx,
   regressionReportFileName,
@@ -122,6 +126,29 @@ export const exportActions = {
       return true;
     } catch (error) {
       notifyError(error, { title: 'Не удалось экспортировать ПМИ в Word' });
+      return false;
+    }
+  },
+
+  /** One Word file from several PSI tasks, grouped by module. */
+  async exportPsiTasksDocx(groups: PsiCombinedModule[]): Promise<boolean> {
+    try {
+      const settings = useAppStore.getState().settings.export ?? DEFAULT_APP_SETTINGS.export;
+      const bytes = await buildPsiCombinedDocx({ groups, settings });
+      const savedPath = await saveDocxFile({
+        bytes,
+        suggestedName: 'ПСИ.docx',
+        title: 'Экспорт ПСИ в Word',
+      });
+
+      if (!savedPath) {
+        return false;
+      }
+
+      notifyExportSaved(savedPath, 'DOCX');
+      return true;
+    } catch (error) {
+      notifyError(error, { title: 'Не удалось экспортировать ПСИ в Word' });
       return false;
     }
   },

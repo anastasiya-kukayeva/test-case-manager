@@ -6,6 +6,7 @@ import { AppLayout } from '@/layouts/AppLayout';
 import { HomePage } from '@/pages/HomePage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { TaskDetailPage } from '@/pages/TaskDetailPage';
+import { PsiExportPage } from '@/pages/PsiExportPage';
 import { TasksListPage } from '@/pages/TasksListPage';
 import { AppRoutes } from '@/routes/paths';
 
@@ -69,6 +70,7 @@ export function AppRouter() {
       <Route element={<AppLayout />}>
         <Route index element={<HomePage />} />
         <Route path={AppRoutes.tasks} element={<TasksListPage />} />
+        <Route path={AppRoutes.psiExport} element={<PsiExportPage />} />
         <Route path={AppRoutes.taskCurrent} element={<TaskDetailPage />} />
         <Route
           path={AppRoutes.allTestCases}

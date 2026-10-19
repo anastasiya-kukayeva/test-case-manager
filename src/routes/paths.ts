@@ -2,6 +2,8 @@ export const AppRoutes = {
   home: '/',
   tasks: '/tasks',
   taskCurrent: '/tasks/current',
+  /** Combined PSI Word export from several tasks */
+  psiExport: '/tasks/psi-export',
   /** @deprecated use tasks */
   projects: '/tasks',
   /** All test cases across recent tasks */

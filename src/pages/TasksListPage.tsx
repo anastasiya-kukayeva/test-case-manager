@@ -14,6 +14,7 @@ import {
   IconCopy,
   IconArrowsMove,
   IconDeviceFloppy,
+  IconFileExport,
   IconFolderOpen,
   IconPlus,
   IconSearch,
@@ -281,6 +282,13 @@ export function TasksListPage() {
             >
               Открыть файл…
             </Button>
+            <Button
+              variant="default"
+              leftSection={<IconFileExport size={16} />}
+              onClick={() => void navigate(AppRoutes.psiExport)}
+            >
+              Выгрузка ПСИ из нескольких задач
+            </Button>
             <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateOpened(true)}>
               Новая задача
             </Button>
@@ -397,11 +405,7 @@ export function TasksListPage() {
                           leftSection={<IconDeviceFloppy size={14} />}
                           onClick={(event) => {
                             event.stopPropagation();
-                            void projectActions.saveAs().then((ok) => {
-                              if (ok) {
-                                void navigate(AppRoutes.taskCurrent);
-                              }
-                            });
+                            void projectActions.saveAs();
                           }}
                         >
                           Сохранить
@@ -441,7 +445,9 @@ export function TasksListPage() {
         opened={Boolean(moveTask)}
         task={moveTask}
         tasks={tasksForTree}
-        confirming={Boolean(busyKey && moveTask && (busyKey === moveTask.filePath || busyKey === moveTask.id))}
+        confirming={Boolean(
+          busyKey && moveTask && (busyKey === moveTask.filePath || busyKey === moveTask.id),
+        )}
         onClose={() => setMoveTask(null)}
         onConfirm={(parentTaskId) => void handleMoveConfirm(parentTaskId)}
       />

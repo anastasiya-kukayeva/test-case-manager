@@ -116,17 +116,8 @@ export function TestCaseEditorPage() {
         taskName={current.document.meta.name}
         onSave={(values) => {
           void (async () => {
-            if (leavingRef.current) {
-              return;
-            }
-            leavingRef.current = true;
-            try {
-              persist(values, true);
-              await projectActions.saveIfDirty({ silent: true, allowSaveAs: true });
-              void navigate(listRoute);
-            } finally {
-              leavingRef.current = false;
-            }
+            persist(values, true);
+            await projectActions.saveIfDirty({ silent: true, allowSaveAs: true });
           })();
         }}
         onAutoSave={(values) => persist(values, false)}

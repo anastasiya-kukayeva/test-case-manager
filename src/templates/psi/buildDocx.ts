@@ -5,6 +5,7 @@ import {
   PageOrientation,
   Paragraph,
   SectionType,
+  ShadingType,
   Table,
   TableCell,
   TableLayoutType,
@@ -13,7 +14,14 @@ import {
   WidthType,
   type FileChild,
 } from 'docx';
-import type { ExportSettings, PsiResultItem, PsiStep, RichTextContent, TaskDocument } from '@/domain/types';
+import type {
+  ExportSettings,
+  PsiResultItem,
+  PsiStep,
+  RichTextContent,
+  TaskDocument,
+  TestCase,
+} from '@/domain/types';
 import {
   FONT,
   PAGE_HEIGHT_TWIPS,
@@ -26,6 +34,7 @@ import {
   pageOfFooter,
   run,
 } from '@/templates/shared/docx';
+import { compareModuleNames } from '@/domain/utils/moduleOrder';
 import { isRichContentFilled } from '@/templates/shared/richContent';
 
 const PSI_DOCUMENT_TITLE = 'Программа и методика приемо-сдаточных испытаний';
@@ -140,6 +149,91 @@ function savedResults(items: PsiResultItem[] | undefined): PsiResultItem[] {
   );
 }
 
+function exportCases(document: TaskDocument): TestCase[] {
+  return document.testCases.filter((item) => !item.regressionOnly);
+}
+
+async function testCaseRow(
+  testCase: TestCase,
+  fallbackNumber: string,
+  settings: ExportSettings,
+): Promise<TableRow> {
+  const steps = (testCase.psiSteps ?? []).map((step: PsiStep) => step.content);
+  const results = savedResults(testCase.psiResults);
+  const stepImageWidth = columnImageWidthPx(COLUMN_WIDTHS[2]);
+  const resultImageWidth = columnImageWidthPx(COLUMN_WIDTHS[3]);
+  return new TableRow({
+    children: [
+      cell(
+        [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [run(testCase.number?.trim() || fallbackNumber)],
+          }),
+        ],
+        COLUMN_WIDTHS[0],
+      ),
+      cell(
+        [
+          new Paragraph({
+            children: [run(testCase.title?.trim() || '')],
+          }),
+        ],
+        COLUMN_WIDTHS[1],
+      ),
+      cell(await numberedRich(steps, settings, stepImageWidth), COLUMN_WIDTHS[2]),
+      cell(
+        await numberedRich(
+          results.map((item) => item.expected),
+          settings,
+          resultImageWidth,
+        ),
+        COLUMN_WIDTHS[3],
+      ),
+      cell(
+        await numberedRich(
+          results.map((item) => item.actual),
+          settings,
+          resultImageWidth,
+        ),
+        COLUMN_WIDTHS[4],
+      ),
+    ],
+  });
+}
+
+function moduleHeadingRow(label: string): TableRow {
+  return new TableRow({
+    cantSplit: true,
+    children: [
+      new TableCell({
+        columnSpan: COLUMN_WIDTHS.length,
+        width: { size: LANDSCAPE_CONTENT_WIDTH_TWIPS, type: WidthType.DXA },
+        shading: { type: ShadingType.CLEAR, fill: 'E7EEF7' },
+        margins: { top: 80, bottom: 80, left: CELL_PAD_X, right: CELL_PAD_X },
+        children: [
+          new Paragraph({
+            children: [run(label, { bold: true })],
+          }),
+        ],
+      }),
+    ],
+  });
+}
+
+function tableHeaderRow(): TableRow {
+  return new TableRow({
+    tableHeader: true,
+    children: [
+      headerCell(['№'], COLUMN_WIDTHS[0]),
+      headerCell(['Наименование', 'теста'], COLUMN_WIDTHS[1]),
+      headerCell(['Описание теста /', 'шаги', 'воспроизведения'], COLUMN_WIDTHS[2]),
+      headerCell(['Ожидаемый результат'], COLUMN_WIDTHS[3]),
+      headerCell(['Фактический результат'], COLUMN_WIDTHS[4]),
+    ],
+  });
+}
+
 export async function buildPsiDocx(context: {
   document: TaskDocument;
   settings: ExportSettings;
@@ -174,7 +268,9 @@ export async function buildPsiDocx(context: {
   const bodyChildren: FileChild[] = [
     new Paragraph({
       spacing: { before: 200, after: 120 },
-      children: [run('Тестовые сценарии и результаты их выполнения', { bold: true, size: SIZE_H2 })],
+      children: [
+        run('Тестовые сценарии и результаты их выполнения', { bold: true, size: SIZE_H2 }),
+      ],
     }),
     new Paragraph({
       spacing: { after: 160 },
@@ -182,66 +278,11 @@ export async function buildPsiDocx(context: {
     }),
   ];
 
-  const header = new TableRow({
-    tableHeader: true,
-    children: [
-      headerCell(['№'], COLUMN_WIDTHS[0]),
-      headerCell(['Наименование', 'теста'], COLUMN_WIDTHS[1]),
-      headerCell(['Описание теста /', 'шаги', 'воспроизведения'], COLUMN_WIDTHS[2]),
-      headerCell(['Ожидаемый результат'], COLUMN_WIDTHS[3]),
-      headerCell(['Фактический результат'], COLUMN_WIDTHS[4]),
-    ],
-  });
-
-  const testCases = document.testCases.filter((item) => !item.regressionOnly);
-  const rows: TableRow[] = [header];
-  const stepImageWidth = columnImageWidthPx(COLUMN_WIDTHS[2]);
-  const resultImageWidth = columnImageWidthPx(COLUMN_WIDTHS[3]);
+  const testCases = exportCases(document);
+  const rows: TableRow[] = [tableHeaderRow()];
 
   for (let index = 0; index < testCases.length; index += 1) {
-    const testCase = testCases[index];
-    const steps = (testCase.psiSteps ?? []).map((step: PsiStep) => step.content);
-    const results = savedResults(testCase.psiResults);
-    rows.push(
-      new TableRow({
-        children: [
-          cell(
-            [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [run(testCase.number?.trim() || String(index + 1))],
-              }),
-            ],
-            COLUMN_WIDTHS[0],
-          ),
-          cell(
-            [
-              new Paragraph({
-                children: [run(testCase.title?.trim() || '')],
-              }),
-            ],
-            COLUMN_WIDTHS[1],
-          ),
-          cell(await numberedRich(steps, settings, stepImageWidth), COLUMN_WIDTHS[2]),
-          cell(
-            await numberedRich(
-              results.map((item) => item.expected),
-              settings,
-              resultImageWidth,
-            ),
-            COLUMN_WIDTHS[3],
-          ),
-          cell(
-            await numberedRich(
-              results.map((item) => item.actual),
-              settings,
-              resultImageWidth,
-            ),
-            COLUMN_WIDTHS[4],
-          ),
-        ],
-      }),
-    );
+    rows.push(await testCaseRow(testCases[index], String(index + 1), settings));
   }
 
   bodyChildren.push(
@@ -285,6 +326,89 @@ export async function buildPsiDocx(context: {
       {
         properties: {
           type: SectionType.NEXT_PAGE,
+          page: {
+            size: {
+              width: PAGE_WIDTH_TWIPS,
+              height: PAGE_HEIGHT_TWIPS,
+              orientation: PageOrientation.LANDSCAPE,
+            },
+            margin: { ...PSI_TABLE_MARGIN },
+          },
+        },
+        footers: { default: pageOfFooter() },
+        children: bodyChildren,
+      },
+    ],
+  });
+
+  const blob = await Packer.toBlob(doc);
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+export type PsiCombinedModule = {
+  moduleName: string;
+  documents: TaskDocument[];
+};
+
+/** One landscape table: the module name as stored, then the cases of the tasks in that module. */
+export async function buildPsiCombinedDocx(context: {
+  groups: PsiCombinedModule[];
+  settings: ExportSettings;
+}): Promise<Uint8Array> {
+  const { groups, settings } = context;
+  const bodyChildren: FileChild[] = [
+    new Paragraph({
+      spacing: { before: 200, after: 120 },
+      children: [
+        run('Тестовые сценарии и результаты их выполнения', { bold: true, size: SIZE_H2 }),
+      ],
+    }),
+    new Paragraph({
+      spacing: { after: 160 },
+      children: [run('Тестовые сценарии и результаты их проверок приведены в таблице:')],
+    }),
+  ];
+
+  const rows: TableRow[] = [tableHeaderRow()];
+  const orderedGroups = [...groups]
+    .filter((group) => group.documents.length > 0)
+    .sort((left, right) => compareModuleNames(left.moduleName, right.moduleName));
+  for (const group of orderedGroups) {
+    rows.push(moduleHeadingRow(group.moduleName));
+    for (const document of group.documents) {
+      const testCases = exportCases(document);
+      for (let index = 0; index < testCases.length; index += 1) {
+        rows.push(await testCaseRow(testCases[index], String(index + 1), settings));
+      }
+    }
+  }
+
+  bodyChildren.push(
+    new Table({
+      width: { size: LANDSCAPE_CONTENT_WIDTH_TWIPS, type: WidthType.DXA },
+      columnWidths: [...COLUMN_WIDTHS],
+      layout: TableLayoutType.FIXED,
+      rows,
+    }),
+  );
+
+  const doc = new Document({
+    creator: 'Test Case Manager',
+    title: PSI_DOCUMENT_TITLE,
+    description: PSI_DOCUMENT_TITLE,
+    styles: {
+      default: {
+        document: {
+          run: {
+            font: FONT,
+            size: SIZE_BODY,
+          },
+        },
+      },
+    },
+    sections: [
+      {
+        properties: {
           page: {
             size: {
               width: PAGE_WIDTH_TWIPS,

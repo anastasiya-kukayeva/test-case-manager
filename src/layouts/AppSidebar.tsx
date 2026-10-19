@@ -15,10 +15,11 @@ export function AppSidebar() {
   const location = useLocation();
 
   const isOnTasks =
-    location.pathname === AppRoutes.tasks || location.pathname === AppRoutes.taskCurrent;
+    location.pathname === AppRoutes.tasks ||
+    location.pathname === AppRoutes.taskCurrent ||
+    location.pathname === AppRoutes.psiExport;
   const isOnRegression =
-    location.pathname === AppRoutes.regression ||
-    location.pathname.startsWith('/regression/');
+    location.pathname === AppRoutes.regression || location.pathname.startsWith('/regression/');
 
   return (
     <Stack gap="xs" p="md" style={{ height: '100%', overflow: 'auto' }}>

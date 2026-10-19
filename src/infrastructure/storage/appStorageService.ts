@@ -11,6 +11,7 @@ import {
   type DirectoryPerson,
   type RecentProject,
 } from '@/domain/types';
+import { compareModuleNames } from '@/domain/utils/moduleOrder';
 import { StorageKeys } from '@/infrastructure/storage/storageKeys';
 
 function getElectronApi() {
@@ -234,7 +235,7 @@ export const appStorageService = {
         createdAt:
           typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
       }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+      .sort((a, b) => compareModuleNames(a.name, b.name));
   },
 
   async saveDirectoryModules(modules: DirectoryModule[]): Promise<void> {

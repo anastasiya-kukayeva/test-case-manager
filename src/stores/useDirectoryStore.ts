@@ -11,6 +11,7 @@ import {
   type DirectoryPerson,
   type DirectoryRole,
 } from '@/domain/types';
+import { compareModuleNames } from '@/domain/utils/moduleOrder';
 import { projectFileService } from '@/infrastructure/project/projectFileService';
 import { appStorageService } from '@/infrastructure/storage/appStorageService';
 import { useAppStore } from '@/stores/useAppStore';
@@ -94,6 +95,10 @@ function sortApplications(applications: DirectoryApplication[]): DirectoryApplic
   return [...applications].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 }
 
+function sortModules(modules: DirectoryModule[]): DirectoryModule[] {
+  return [...modules].sort((a, b) => compareModuleNames(a.name, b.name));
+}
+
 export const useDirectoryStore = create<DirectoryStoreState>((set, get) => ({
   people: [],
   applications: [],
@@ -135,7 +140,7 @@ export const useDirectoryStore = create<DirectoryStoreState>((set, get) => ({
         await appStorageService.markDirectoryApplicationsSeeded();
       }
 
-      set({ people, applications, modules, environments, isLoaded: true });
+      set({ people, applications, modules: sortModules(modules), environments, isLoaded: true });
     } catch (error) {
       notifyError(error, { title: 'Не удалось загрузить справочник' });
       set({ people: [], applications: [], modules: [], environments: [], isLoaded: true });
@@ -383,7 +388,7 @@ export const useDirectoryStore = create<DirectoryStoreState>((set, get) => ({
         name: normalized,
         createdAt: new Date().toISOString(),
       };
-      const next = sortApplications([...get().modules, moduleItem]);
+      const next = sortModules([...get().modules, moduleItem]);
       set({ modules: next });
 
       if (appStorageService.isAvailable()) {
@@ -419,7 +424,7 @@ export const useDirectoryStore = create<DirectoryStoreState>((set, get) => ({
         throw new AppError('VALIDATION', `Модуль «${normalized}» уже есть в списке`);
       }
 
-      const next = sortApplications(
+      const next = sortModules(
         get().modules.map((item) => (item.id === id ? { ...item, name: normalized } : item)),
       );
       set({ modules: next });
