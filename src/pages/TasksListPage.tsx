@@ -40,6 +40,7 @@ import {
   filterTaskTree,
 } from '@/domain/utils/taskTree';
 import { appStorageService } from '@/infrastructure/storage/appStorageService';
+import { normalizeWorkspaceDirectory } from '@/infrastructure/workspace/paths';
 import { AppRoutes } from '@/routes/paths';
 import { useAppStore } from '@/stores/useAppStore';
 import { useProjectStore } from '@/stores/useProjectStore';
@@ -74,6 +75,9 @@ function matchesTaskQuery(
 export function TasksListPage() {
   const navigate = useNavigate();
   const recentProjects = useAppStore((state) => state.recentProjects);
+  const workspaceDir = normalizeWorkspaceDirectory(
+    useAppStore((state) => state.settings.storage.defaultProjectsDirectory),
+  );
   const setRecentProjects = useAppStore((state) => state.setRecentProjects);
   const current = useProjectStore((state) => state.current);
   const [createOpened, setCreateOpened] = useState(false);
@@ -324,8 +328,9 @@ export function TasksListPage() {
           <Stack gap="sm">
             {listEmpty ? (
               <Text c="dimmed" size="sm">
-                Список пуст. Создайте задачу и сохраните файл *.tctask — иначе она пропадёт после
-                закрытия приложения.
+                {workspaceDir
+                  ? 'В рабочей папке нет задач. Создайте задачу и сохраните файл *.tctask — он появится в списке.'
+                  : 'Список пуст. Создайте задачу и сохраните файл *.tctask — иначе она пропадёт после закрытия приложения.'}
               </Text>
             ) : noMatches ? (
               <Text c="dimmed" size="sm">
@@ -426,7 +431,11 @@ export function TasksListPage() {
                     onOpen={(filePath) => void openTask(filePath)}
                     onCopy={(task) => void handleCopy(task)}
                     onMove={setMoveTask}
-                    onRemove={(filePath, name) => void handleRemoveRecent(filePath, name)}
+                    onRemove={
+                      workspaceDir
+                        ? undefined
+                        : (filePath, name) => void handleRemoveRecent(filePath, name)
+                    }
                   />
                 ) : null}
               </AnimatePresence>

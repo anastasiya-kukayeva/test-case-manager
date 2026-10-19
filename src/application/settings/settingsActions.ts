@@ -1,10 +1,12 @@
 import { AppError } from '@/application/errors/AppError';
 import { notifyError, notifySuccess } from '@/application/errors/errorHandler';
 import { confirmAction } from '@/application/ui/confirmAction';
+import { reloadWorkspaceBoundData } from '@/application/workspace/workspaceActions';
 import { DEFAULT_APP_SETTINGS, type AppSettings, type HotkeySettings } from '@/domain/types';
 import { appStorageService } from '@/infrastructure/storage/appStorageService';
-import { isValidHotkey } from '@/utils/hotkeys';
+import { normalizeWorkspaceDirectory } from '@/infrastructure/workspace/paths';
 import { useAppStore } from '@/stores/useAppStore';
+import { isValidHotkey } from '@/utils/hotkeys';
 
 export const settingsActions = {
   async pickDefaultDirectory(): Promise<string | null> {
@@ -19,7 +21,7 @@ export const settingsActions = {
 
       const current = useAppStore.getState().settings.storage.defaultProjectsDirectory;
       const selected = await api.dialog.openFile({
-        title: 'Папка задач по умолчанию',
+        title: 'Рабочая папка',
         defaultPath: current ?? undefined,
         properties: ['openDirectory'],
       });
@@ -35,7 +37,10 @@ export const settingsActions = {
         },
       });
 
-      notifySuccess('Папка по умолчанию обновлена');
+      const loaded = await reloadWorkspaceBoundData();
+      if (loaded) {
+        notifySuccess('Рабочая папка обновлена. Данные загружены из неё.');
+      }
       return selected;
     } catch (error) {
       notifyError(error, { title: 'Не удалось выбрать папку' });
@@ -50,7 +55,8 @@ export const settingsActions = {
         defaultProjectsDirectory: null,
       },
     });
-    notifySuccess('Папка по умолчанию сброшена');
+    await reloadWorkspaceBoundData();
+    notifySuccess('Рабочая папка сброшена');
   },
 
   async updateAutosave(partial: Partial<AppSettings['autosave']>): Promise<void> {
@@ -125,14 +131,20 @@ export const settingsActions = {
     }
 
     await useAppStore.getState().setSettings({ ...DEFAULT_APP_SETTINGS });
+    await reloadWorkspaceBoundData();
     notifySuccess('Настройки сброшены');
     return true;
   },
 
   async clearRecentTasks(): Promise<boolean> {
+    const workspaceDir = normalizeWorkspaceDirectory(
+      useAppStore.getState().settings.storage.defaultProjectsDirectory,
+    );
     const confirmed = await confirmAction({
-      title: 'Очистить недавние задачи?',
-      message: 'Список последних открытых задач будет удалён. Сами файлы не затрагиваются.',
+      title: workspaceDir ? 'Очистить историю открытий?' : 'Очистить недавние задачи?',
+      message: workspaceDir
+        ? 'История последних открытий будет очищена. Список задач по-прежнему загружается из рабочей папки. Файлы не удаляются.'
+        : 'Список последних открытых задач будет удалён. Сами файлы не затрагиваются.',
       confirmLabel: 'Очистить',
       cancelLabel: 'Отмена',
       confirmColor: 'red',
@@ -147,8 +159,13 @@ export const settingsActions = {
         await appStorageService.saveRecentProjects([]);
         await appStorageService.setLastOpenedProjectPath(null);
       }
-      useAppStore.getState().setRecentProjects([]);
-      notifySuccess('Список недавних задач очищен');
+      if (workspaceDir) {
+        await useAppStore.getState().refreshRecentProjects();
+        notifySuccess('История открытий очищена. Задачи из рабочей папки остались в списке.');
+      } else {
+        useAppStore.getState().setRecentProjects([]);
+        notifySuccess('Список недавних задач очищен');
+      }
       return true;
     } catch (error) {
       notifyError(error, { title: 'Не удалось очистить список' });

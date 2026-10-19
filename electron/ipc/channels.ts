@@ -13,6 +13,7 @@ export const IpcChannels = {
   FILE_EXISTS: 'file:exists',
   FILE_DELETE: 'file:delete',
   FILE_ENSURE_DIR: 'file:ensure-dir',
+  FILE_LIST_TASKS: 'file:list-tasks',
   SHELL_OPEN_PATH: 'shell:open-path',
 } as const;
 
@@ -51,4 +52,14 @@ export type FileWriteRequest = {
 export type FileWriteBinaryRequest = {
   path: string;
   base64: string;
+};
+
+/** Task file found in the working folder. Metadata only — the document body stays on disk. */
+export type WorkspaceTaskSummary = {
+  filePath: string;
+  id: string;
+  name: string;
+  shortName: string;
+  parentTaskId: string | null;
+  updatedAt: string;
 };

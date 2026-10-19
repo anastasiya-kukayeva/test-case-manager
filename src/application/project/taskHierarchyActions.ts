@@ -14,6 +14,7 @@ import { TC_TASK_FILE_EXTENSION } from '@/domain/types';
 import { canNestTask } from '@/domain/utils/taskTree';
 import { projectFileService } from '@/infrastructure/project/projectFileService';
 import { appStorageService } from '@/infrastructure/storage/appStorageService';
+import { isPathInsideDirectory, normalizeWorkspaceDirectory } from '@/infrastructure/workspace/paths';
 import { useAppStore } from '@/stores/useAppStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 
@@ -97,9 +98,15 @@ function isCurrentTask(
 }
 
 async function persistRecent(next: RecentProject[]): Promise<void> {
-  useAppStore.getState().setRecentProjects(next);
-  if (appStorageService.isAvailable()) {
-    await appStorageService.saveRecentProjects(next);
+  const workspaceDir = normalizeWorkspaceDirectory(
+    useAppStore.getState().settings.storage.defaultProjectsDirectory,
+  );
+  const visible = workspaceDir
+    ? next.filter((item) => isPathInsideDirectory(item.filePath, workspaceDir))
+    : next;
+  useAppStore.getState().setRecentProjects(visible);
+  if (!workspaceDir && appStorageService.isAvailable()) {
+    await appStorageService.saveRecentProjects(visible);
   }
 }
 

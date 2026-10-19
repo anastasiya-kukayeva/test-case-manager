@@ -7,6 +7,7 @@ import {
   type OpenFileDialogOptions,
   type SaveFileDialogOptions,
 } from './ipc/channels';
+import type { WorkspaceTaskSummary } from './ipc/channels';
 
 export type ElectronApi = {
   platform: NodeJS.Platform;
@@ -36,6 +37,8 @@ export type ElectronApi = {
     exists: (filePath: string) => Promise<boolean>;
     delete: (filePath: string) => Promise<boolean>;
     ensureDir: (dirPath: string) => Promise<boolean>;
+    /** Read task metadata from a working folder (*.tctask / *.tcproj). */
+    listTasks: (dirPath: string) => Promise<WorkspaceTaskSummary[]>;
   };
   shell: {
     /** Opens the file with the OS default app. Returns error message or empty string. */
@@ -79,6 +82,8 @@ const electronApi: ElectronApi = {
     delete: (filePath) => ipcRenderer.invoke(IpcChannels.FILE_DELETE, filePath) as Promise<boolean>,
     ensureDir: (dirPath) =>
       ipcRenderer.invoke(IpcChannels.FILE_ENSURE_DIR, dirPath) as Promise<boolean>,
+    listTasks: (dirPath) =>
+      ipcRenderer.invoke(IpcChannels.FILE_LIST_TASKS, dirPath) as Promise<WorkspaceTaskSummary[]>,
   },
   shell: {
     openPath: (filePath) =>

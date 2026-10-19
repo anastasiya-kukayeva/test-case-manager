@@ -13,6 +13,13 @@ import {
 } from '@/domain/types';
 import { compareModuleNames } from '@/domain/utils/moduleOrder';
 import { StorageKeys } from '@/infrastructure/storage/storageKeys';
+import { normalizeWorkspaceDirectory } from '@/infrastructure/workspace/paths';
+import {
+  invalidateWorkspaceDirectoryCache,
+  readWorkspaceDirectoryBundle,
+  updateWorkspaceDirectoryBundle,
+  type WorkspaceDirectoryBundle,
+} from '@/infrastructure/workspace/workspaceDirectory';
 
 function getElectronApi() {
   if (typeof window === 'undefined' || !window.electronAPI?.store) {
@@ -73,6 +80,179 @@ function mergeSettings(raw: Partial<AppSettings> | undefined): AppSettings {
   };
 }
 
+const mirroredWorkspaceDirs = new Set<string>();
+
+export function invalidateWorkspaceBinding(): void {
+  invalidateWorkspaceDirectoryCache();
+  mirroredWorkspaceDirs.clear();
+}
+
+async function getWorkspaceDirectory(): Promise<string | null> {
+  const settings = await storeGet<Partial<AppSettings>>(StorageKeys.SETTINGS);
+  return normalizeWorkspaceDirectory(settings?.storage?.defaultProjectsDirectory);
+}
+
+async function readDirectoryPeopleFromStore(): Promise<DirectoryPerson[]> {
+  const people = await storeGet<Array<Partial<DirectoryPerson> & { id?: string; name?: string }>>(
+    StorageKeys.DIRECTORY_PEOPLE,
+  );
+  if (!Array.isArray(people)) {
+    return [];
+  }
+
+  const normalized: DirectoryPerson[] = [];
+  let migrated = false;
+
+  for (const item of people) {
+    if (!item || typeof item.id !== 'string' || typeof item.name !== 'string') {
+      continue;
+    }
+    const name = item.name.trim();
+    if (!name) {
+      continue;
+    }
+    const createdAt = typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString();
+
+    if (isDirectoryRole(item.role)) {
+      normalized.push({
+        id: item.id,
+        name,
+        role: item.role,
+        createdAt,
+        isDefault: item.role === 'author' && item.isDefault === true,
+      });
+      continue;
+    }
+
+    migrated = true;
+    for (const role of DIRECTORY_ROLES) {
+      normalized.push({
+        id: nanoid(),
+        name,
+        role,
+        createdAt,
+      });
+    }
+  }
+
+  const sorted = normalized.sort((a, b) => {
+    const byRole = a.role.localeCompare(b.role);
+    if (byRole !== 0) {
+      return byRole;
+    }
+    return a.name.localeCompare(b.name, 'ru');
+  });
+
+  if (migrated) {
+    await storeSet(StorageKeys.DIRECTORY_PEOPLE, sorted);
+  }
+
+  return sorted;
+}
+
+async function readDirectoryApplicationsFromStore(): Promise<DirectoryApplication[]> {
+  const items = await storeGet<Array<Partial<DirectoryApplication>>>(StorageKeys.DIRECTORY_APPLICATIONS);
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .filter(
+      (item): item is DirectoryApplication =>
+        Boolean(item) &&
+        typeof item.id === 'string' &&
+        typeof item.name === 'string' &&
+        item.name.trim().length > 0,
+    )
+    .map((item) => ({
+      id: item.id,
+      name: item.name.trim(),
+      createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+}
+
+async function readDirectoryModulesFromStore(): Promise<DirectoryModule[]> {
+  const items = await storeGet<Array<Partial<DirectoryModule>>>(StorageKeys.DIRECTORY_MODULES);
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .filter(
+      (item): item is DirectoryModule =>
+        Boolean(item) &&
+        typeof item.id === 'string' &&
+        typeof item.name === 'string' &&
+        item.name.trim().length > 0,
+    )
+    .map((item) => ({
+      id: item.id,
+      name: item.name.trim(),
+      createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
+    }))
+    .sort((a, b) => compareModuleNames(a.name, b.name));
+}
+
+async function readDirectoryEnvironmentsFromStore(): Promise<DirectoryEnvironment[]> {
+  const items = await storeGet<Array<Partial<DirectoryEnvironment>>>(StorageKeys.DIRECTORY_ENVIRONMENTS);
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .filter(
+      (item): item is DirectoryEnvironment =>
+        Boolean(item) &&
+        typeof item.id === 'string' &&
+        typeof item.name === 'string' &&
+        item.name.trim().length > 0,
+    )
+    .map((item) => ({
+      id: item.id,
+      name: item.name.trim(),
+      createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
+      isDefault: item.isDefault === true,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+}
+
+async function readDirectoryApplicationsSeededFromStore(): Promise<boolean> {
+  return Boolean(await storeGet<boolean>(StorageKeys.DIRECTORY_APPLICATIONS_SEEDED));
+}
+
+async function readStoreDirectoryBundle(): Promise<WorkspaceDirectoryBundle> {
+  const [people, applications, modules, environments, applicationsSeeded] = await Promise.all([
+    readDirectoryPeopleFromStore(),
+    readDirectoryApplicationsFromStore(),
+    readDirectoryModulesFromStore(),
+    readDirectoryEnvironmentsFromStore(),
+    readDirectoryApplicationsSeededFromStore(),
+  ]);
+
+  return { people, applications, modules, environments, applicationsSeeded };
+}
+
+async function mirrorBundleToStore(bundle: WorkspaceDirectoryBundle): Promise<void> {
+  await Promise.all([
+    storeSet(StorageKeys.DIRECTORY_PEOPLE, bundle.people),
+    storeSet(StorageKeys.DIRECTORY_APPLICATIONS, bundle.applications),
+    storeSet(StorageKeys.DIRECTORY_MODULES, bundle.modules),
+    storeSet(StorageKeys.DIRECTORY_ENVIRONMENTS, bundle.environments),
+    storeSet(StorageKeys.DIRECTORY_APPLICATIONS_SEEDED, bundle.applicationsSeeded),
+  ]);
+}
+
+async function ensureWorkspaceBundle(directory: string): Promise<WorkspaceDirectoryBundle> {
+  const bundle = await readWorkspaceDirectoryBundle(directory, readStoreDirectoryBundle);
+  const key = directory.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  if (!mirroredWorkspaceDirs.has(key)) {
+    await mirrorBundleToStore(bundle);
+    mirroredWorkspaceDirs.add(key);
+  }
+  return bundle;
+}
+
 export const appStorageService = {
   async getSettings(): Promise<AppSettings> {
     const raw = await storeGet<Partial<AppSettings>>(StorageKeys.SETTINGS);
@@ -123,160 +303,102 @@ export const appStorageService = {
   },
 
   async getDirectoryPeople(): Promise<DirectoryPerson[]> {
-    const people = await storeGet<Array<Partial<DirectoryPerson> & { id?: string; name?: string }>>(
-      StorageKeys.DIRECTORY_PEOPLE,
-    );
-    if (!Array.isArray(people)) {
-      return [];
+    const workspace = await getWorkspaceDirectory();
+    if (workspace) {
+      return (await ensureWorkspaceBundle(workspace)).people;
     }
-
-    const normalized: DirectoryPerson[] = [];
-    let migrated = false;
-
-    for (const item of people) {
-      if (!item || typeof item.id !== 'string' || typeof item.name !== 'string') {
-        continue;
-      }
-      const name = item.name.trim();
-      if (!name) {
-        continue;
-      }
-      const createdAt =
-        typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString();
-
-      if (isDirectoryRole(item.role)) {
-        normalized.push({
-          id: item.id,
-          name,
-          role: item.role,
-          createdAt,
-          isDefault: item.role === 'author' && item.isDefault === true,
-        });
-        continue;
-      }
-
-      // Legacy entries without role → copy into all three categories
-      migrated = true;
-      for (const role of DIRECTORY_ROLES) {
-        normalized.push({
-          id: nanoid(),
-          name,
-          role,
-          createdAt,
-        });
-      }
-    }
-
-    const sorted = normalized.sort((a, b) => {
-      const byRole = a.role.localeCompare(b.role);
-      if (byRole !== 0) {
-        return byRole;
-      }
-      return a.name.localeCompare(b.name, 'ru');
-    });
-
-    if (migrated) {
-      await storeSet(StorageKeys.DIRECTORY_PEOPLE, sorted);
-    }
-
-    return sorted;
+    return readDirectoryPeopleFromStore();
   },
 
   async saveDirectoryPeople(people: DirectoryPerson[]): Promise<void> {
+    const workspace = await getWorkspaceDirectory();
+    if (workspace) {
+      await updateWorkspaceDirectoryBundle(
+        workspace,
+        (current) => ({ ...current, people }),
+        readStoreDirectoryBundle,
+      );
+    }
     await storeSet(StorageKeys.DIRECTORY_PEOPLE, people);
   },
 
   async getDirectoryApplications(): Promise<DirectoryApplication[]> {
-    const items = await storeGet<Array<Partial<DirectoryApplication>>>(
-      StorageKeys.DIRECTORY_APPLICATIONS,
-    );
-    if (!Array.isArray(items)) {
-      return [];
+    const workspace = await getWorkspaceDirectory();
+    if (workspace) {
+      return (await ensureWorkspaceBundle(workspace)).applications;
     }
-
-    return items
-      .filter(
-        (item): item is DirectoryApplication =>
-          Boolean(item) &&
-          typeof item.id === 'string' &&
-          typeof item.name === 'string' &&
-          item.name.trim().length > 0,
-      )
-      .map((item) => ({
-        id: item.id,
-        name: item.name.trim(),
-        createdAt:
-          typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+    return readDirectoryApplicationsFromStore();
   },
 
   async saveDirectoryApplications(applications: DirectoryApplication[]): Promise<void> {
+    const workspace = await getWorkspaceDirectory();
+    if (workspace) {
+      await updateWorkspaceDirectoryBundle(
+        workspace,
+        (current) => ({ ...current, applications }),
+        readStoreDirectoryBundle,
+      );
+    }
     await storeSet(StorageKeys.DIRECTORY_APPLICATIONS, applications);
   },
 
   async getDirectoryModules(): Promise<DirectoryModule[]> {
-    const items = await storeGet<Array<Partial<DirectoryModule>>>(StorageKeys.DIRECTORY_MODULES);
-    if (!Array.isArray(items)) {
-      return [];
+    const workspace = await getWorkspaceDirectory();
+    if (workspace) {
+      return (await ensureWorkspaceBundle(workspace)).modules;
     }
-
-    return items
-      .filter(
-        (item): item is DirectoryModule =>
-          Boolean(item) &&
-          typeof item.id === 'string' &&
-          typeof item.name === 'string' &&
-          item.name.trim().length > 0,
-      )
-      .map((item) => ({
-        id: item.id,
-        name: item.name.trim(),
-        createdAt:
-          typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
-      }))
-      .sort((a, b) => compareModuleNames(a.name, b.name));
+    return readDirectoryModulesFromStore();
   },
 
   async saveDirectoryModules(modules: DirectoryModule[]): Promise<void> {
+    const workspace = await getWorkspaceDirectory();
+    if (workspace) {
+      await updateWorkspaceDirectoryBundle(
+        workspace,
+        (current) => ({ ...current, modules }),
+        readStoreDirectoryBundle,
+      );
+    }
     await storeSet(StorageKeys.DIRECTORY_MODULES, modules);
   },
 
   async getDirectoryEnvironments(): Promise<DirectoryEnvironment[]> {
-    const items = await storeGet<Array<Partial<DirectoryEnvironment>>>(
-      StorageKeys.DIRECTORY_ENVIRONMENTS,
-    );
-    if (!Array.isArray(items)) {
-      return [];
+    const workspace = await getWorkspaceDirectory();
+    if (workspace) {
+      return (await ensureWorkspaceBundle(workspace)).environments;
     }
-
-    return items
-      .filter(
-        (item): item is DirectoryEnvironment =>
-          Boolean(item) &&
-          typeof item.id === 'string' &&
-          typeof item.name === 'string' &&
-          item.name.trim().length > 0,
-      )
-      .map((item) => ({
-        id: item.id,
-        name: item.name.trim(),
-        createdAt:
-          typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
-        isDefault: item.isDefault === true,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+    return readDirectoryEnvironmentsFromStore();
   },
 
   async saveDirectoryEnvironments(environments: DirectoryEnvironment[]): Promise<void> {
+    const workspace = await getWorkspaceDirectory();
+    if (workspace) {
+      await updateWorkspaceDirectoryBundle(
+        workspace,
+        (current) => ({ ...current, environments }),
+        readStoreDirectoryBundle,
+      );
+    }
     await storeSet(StorageKeys.DIRECTORY_ENVIRONMENTS, environments);
   },
 
   async isDirectoryApplicationsSeeded(): Promise<boolean> {
-    return Boolean(await storeGet<boolean>(StorageKeys.DIRECTORY_APPLICATIONS_SEEDED));
+    const workspace = await getWorkspaceDirectory();
+    if (workspace) {
+      return (await ensureWorkspaceBundle(workspace)).applicationsSeeded;
+    }
+    return readDirectoryApplicationsSeededFromStore();
   },
 
   async markDirectoryApplicationsSeeded(): Promise<void> {
+    const workspace = await getWorkspaceDirectory();
+    if (workspace) {
+      await updateWorkspaceDirectoryBundle(
+        workspace,
+        (current) => ({ ...current, applicationsSeeded: true }),
+        readStoreDirectoryBundle,
+      );
+    }
     await storeSet(StorageKeys.DIRECTORY_APPLICATIONS_SEEDED, true);
   },
 

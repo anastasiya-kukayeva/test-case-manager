@@ -37,6 +37,16 @@ export type ElectronApi = {
     exists: (filePath: string) => Promise<boolean>;
     delete: (filePath: string) => Promise<boolean>;
     ensureDir: (dirPath: string) => Promise<boolean>;
+    listTasks: (dirPath: string) => Promise<
+      Array<{
+        filePath: string;
+        id: string;
+        name: string;
+        shortName: string;
+        parentTaskId: string | null;
+        updatedAt: string;
+      }>
+    >;
   };
   shell: {
     openPath: (filePath: string) => Promise<string>;

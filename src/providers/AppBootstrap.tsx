@@ -3,6 +3,7 @@ import { DatesProvider } from '@mantine/dates';
 import dayjs from 'dayjs';
 import { useEffect, useState, type ReactNode } from 'react';
 import { projectActions } from '@/application/project/projectActions';
+import { syncWorkspaceTasks } from '@/application/workspace/workspaceActions';
 import { RecoveryModal } from '@/components/project/RecoveryModal';
 import { AppBootstrapSkeleton } from '@/components/ui/AppBootstrapSkeleton';
 import { useProjectAutosave } from '@/hooks/useProjectAutosave';
@@ -10,6 +11,7 @@ import { useProjectHotkeys } from '@/hooks/useProjectHotkeys';
 import { projectFileService } from '@/infrastructure/project/projectFileService';
 import { recoveryService, type RecoverySnapshot } from '@/infrastructure/project/recoveryService';
 import { appStorageService } from '@/infrastructure/storage/appStorageService';
+import { isPathInsideDirectory, normalizeWorkspaceDirectory } from '@/infrastructure/workspace/paths';
 import { useAppStore } from '@/stores/useAppStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
 import { useProjectStore } from '@/stores/useProjectStore';
@@ -34,13 +36,33 @@ export function AppBootstrap({ children }: AppBootstrapProps) {
   useProjectHotkeys();
 
   useEffect(() => {
-    void initialize();
-    void loadDirectory();
+    let cancelled = false;
+    void (async () => {
+      await initialize();
+      if (!cancelled) {
+        await loadDirectory();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [initialize, loadDirectory]);
 
   useEffect(() => {
     dayjs.locale(locale);
   }, [locale]);
+
+  useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+
+    const onFocus = () => {
+      void syncWorkspaceTasks();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [isInitialized]);
 
   useEffect(() => {
     if (!isInitialized || recoveryChecked) {
@@ -64,7 +86,12 @@ export function AppBootstrap({ children }: AppBootstrapProps) {
           !useProjectStore.getState().current
         ) {
           const lastPath = await appStorageService.getLastOpenedProjectPath();
-          if (lastPath) {
+          const workspaceDir = normalizeWorkspaceDirectory(
+            useAppStore.getState().settings.storage.defaultProjectsDirectory,
+          );
+          const lastPathInWorkspace =
+            !workspaceDir || (lastPath ? isPathInsideDirectory(lastPath, workspaceDir) : false);
+          if (lastPath && lastPathInWorkspace) {
             const exists = await window.electronAPI?.file.exists(lastPath);
             if (exists) {
               await projectActions.openRecent(lastPath);

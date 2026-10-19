@@ -10,6 +10,7 @@ import {
   type SaveFileDialogOptions,
 } from './channels';
 import { electronStore, type ElectronStoreSchema } from '../store';
+import { listWorkspaceTasks } from '../workspaceTasks';
 
 function getBrowserWindowFromEvent(event: Electron.IpcMainInvokeEvent): BrowserWindow | null {
   return BrowserWindow.fromWebContents(event.sender);
@@ -134,6 +135,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IpcChannels.FILE_ENSURE_DIR, async (_event, dirPath: string) => {
     await fs.mkdir(dirPath, { recursive: true });
     return true;
+  });
+
+  ipcMain.handle(IpcChannels.FILE_LIST_TASKS, async (_event, dirPath: string) => {
+    return listWorkspaceTasks(dirPath);
   });
 
   ipcMain.handle(IpcChannels.SHELL_OPEN_PATH, async (_event, filePath: string) => {
