@@ -223,7 +223,7 @@ function moduleHeadingRow(label: string): TableRow {
 
 function tableHeaderRow(): TableRow {
   return new TableRow({
-    tableHeader: true,
+    tableHeader: false,
     children: [
       headerCell(['№'], COLUMN_WIDTHS[0]),
       headerCell(['Наименование', 'теста'], COLUMN_WIDTHS[1]),

@@ -21,7 +21,6 @@ import {
   REGRESSION_MODE_LABELS,
   type RegressionMode,
 } from '@/application/regression/loadRegressionGroups';
-import { nextTestCaseNumber } from '@/application/testCases/renumberTestCases';
 import { testCaseActions } from '@/application/testCases/testCaseActions';
 import { DuplicateTestCaseModal } from '@/components/testCases/DuplicateTestCaseModal';
 import { RegressionSearchField } from '@/components/testCases/RegressionSearchField';
@@ -96,7 +95,6 @@ export function RegressionCasesPage() {
     );
   }
 
-  const duplicateSuggestedNumber = nextTestCaseNumber(current.document.testCases);
   const duplicateSourceNumber = current.document.testCases.find(
     (item) => item.id === duplicateSource?.id,
   )?.number;
@@ -161,17 +159,26 @@ export function RegressionCasesPage() {
         opened={Boolean(duplicateSource)}
         sourceNumber={duplicateSourceNumber}
         sourceLabel={duplicateLabel}
-        suggestedNumber={duplicateSuggestedNumber}
         onClose={() => setDuplicateSource(null)}
-        onConfirm={(number) => {
+        onConfirm={async (target) => {
           if (!duplicateSource) {
             return;
           }
-          const created = testCaseActions.duplicate(duplicateSource.id, number);
-          setDuplicateSource(null);
-          if (created) {
-            openEditor(created.id);
+          const created = await testCaseActions.copyToTask({
+            caseId: duplicateSource.id,
+            sourceTaskId: current.document.meta.id,
+            sourceFilePath: current.filePath,
+            target,
+          });
+          if (!created) {
+            return;
           }
+          setDuplicateSource(null);
+          if (target.current) {
+            openEditor(created.id);
+            return;
+          }
+          void navigate(testCaseEditorPath(created.id));
         }}
       />
     </Stack>

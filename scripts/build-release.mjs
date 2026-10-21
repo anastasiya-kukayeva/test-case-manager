@@ -1,5 +1,5 @@
 import { execSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -172,6 +172,48 @@ removeIfExists(path.join(absOutDir, 'win-unpacked.tmp'));
 removeIfExists(path.join(absOutDir, 'win-unpacked'));
 console.log(`[build] output → ${outDir}`);
 
+/**
+ * electron-builder unpacks winCodeSign with 7-Zip. The archive contains macOS
+ * symlinks, and Windows returns an error for those unless Developer Mode is on.
+ * The Windows tools themselves extract; placing that folder in the cache skips
+ * the failing unpack on the next run.
+ */
+function ensureWinCodeSign() {
+  if (process.platform !== 'win32' || !process.env.LOCALAPPDATA) {
+    return;
+  }
+  const version = '2.6.0';
+  const cacheDir = path.join(process.env.LOCALAPPDATA, 'electron-builder', 'Cache', 'winCodeSign');
+  const finalDir = path.join(cacheDir, `winCodeSign-${version}`);
+  if (existsSync(path.join(finalDir, 'rcedit-x64.exe'))) {
+    return;
+  }
+
+  mkdirSync(cacheDir, { recursive: true });
+  const archive = path.join(cacheDir, `winCodeSign-${version}.7z`);
+  const url = `https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-${version}/winCodeSign-${version}.7z`;
+  console.log('[build] preparing Windows packaging tools');
+  if (!existsSync(archive)) {
+    const download = spawnSync('curl.exe', ['-fsSL', '-L', '-o', archive, url], { stdio: 'inherit' });
+    if (download.status !== 0) {
+      process.exit(download.status ?? 1);
+    }
+  }
+
+  const tempDir = path.join(cacheDir, `unpack-${version}`);
+  rmSync(tempDir, { recursive: true, force: true });
+  mkdirSync(tempDir, { recursive: true });
+  const sevenZip = path.join(root, 'node_modules', '7zip-bin', 'win', 'x64', '7za.exe');
+  spawnSync(sevenZip, ['x', '-y', `-o${tempDir}`, archive], { stdio: 'inherit' });
+  if (!existsSync(path.join(tempDir, 'rcedit-x64.exe'))) {
+    console.error('[build] winCodeSign archive did not contain rcedit-x64.exe');
+    process.exit(1);
+  }
+  rmSync(finalDir, { recursive: true, force: true });
+  renameSync(tempDir, finalDir);
+  rmSync(archive, { force: true });
+}
+
 const electronDist = path.join(root, 'node_modules', 'electron', 'dist');
 if (!existsSync(path.join(electronDist, 'electron.exe'))) {
   console.error(`[build] missing Electron binary: ${path.join(electronDist, 'electron.exe')}`);
@@ -181,6 +223,7 @@ if (!existsSync(path.join(electronDist, 'electron.exe'))) {
 const renameRetry = path.join(root, 'scripts', 'win-fs-rename-retry.cjs').replaceAll('\\', '/');
 const nodeOptions = [process.env.NODE_OPTIONS, `--require ${renameRetry}`].filter(Boolean).join(' ');
 
+ensureWinCodeSign();
 run('npx', ['tsc', '-b']);
 run('npx', ['vite', 'build']);
 

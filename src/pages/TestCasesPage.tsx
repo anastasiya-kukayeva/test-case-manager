@@ -1,4 +1,14 @@
-import { Alert, Button, Card, Group, Stack, Text, Title, Tooltip, UnstyledButton } from '@mantine/core';
+import {
+  Alert,
+  Button,
+  Card,
+  Group,
+  Stack,
+  Text,
+  Title,
+  Tooltip,
+  UnstyledButton,
+} from '@mantine/core';
 import { IconInfoCircle, IconPlus } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -52,10 +62,7 @@ export function TestCasesPage() {
     );
   }, [current]);
 
-  const filteredRows = useMemo(
-    () => filterTestCases(allRows, filters),
-    [allRows, filters],
-  );
+  const filteredRows = useMemo(() => filterTestCases(allRows, filters), [allRows, filters]);
 
   if (!current) {
     return (
@@ -92,7 +99,6 @@ export function TestCasesPage() {
   const suggestedNumber =
     formMode === 'create' ? nextTestCaseNumber(current.document.testCases) : undefined;
 
-  const duplicateSuggestedNumber = nextTestCaseNumber(current.document.testCases);
   const duplicateLabel =
     duplicateSource?.goal?.plainText?.trim() || duplicateSource?.title?.trim() || '';
 
@@ -178,17 +184,22 @@ export function TestCasesPage() {
         opened={Boolean(duplicateSource)}
         sourceNumber={duplicateSource?.number}
         sourceLabel={duplicateLabel}
-        suggestedNumber={duplicateSuggestedNumber}
         onClose={() => setDuplicateSource(null)}
-        onConfirm={(number) => {
+        onConfirm={async (target) => {
           if (!duplicateSource) {
             return;
           }
-          const created = testCaseActions.duplicate(duplicateSource.id, number);
-          setDuplicateSource(null);
-          if (created) {
-            void navigate(testCaseEditorPath(created.id));
+          const created = await testCaseActions.copyToTask({
+            caseId: duplicateSource.id,
+            sourceTaskId: current.document.meta.id,
+            sourceFilePath: current.filePath,
+            target,
+          });
+          if (!created) {
+            return;
           }
+          setDuplicateSource(null);
+          void navigate(testCaseEditorPath(created.id));
         }}
       />
     </Stack>

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { nanoid } from 'nanoid';
+import { renameDirectoryNameInTasks } from '@/application/directory/renameDirectoryNameInTasks';
 import { AppError } from '@/application/errors/AppError';
 import { notifyError, notifySuccess } from '@/application/errors/errorHandler';
 import { confirmAction } from '@/application/ui/confirmAction';
@@ -59,7 +60,11 @@ async function applicationNamesFromTasks(): Promise<string[]> {
   }
 
   for (const recent of useAppStore.getState().recentProjects) {
-    if (!recent.filePath || recent.filePath.startsWith('__unsaved__') || seen.has(recent.filePath)) {
+    if (
+      !recent.filePath ||
+      recent.filePath.startsWith('__unsaved__') ||
+      seen.has(recent.filePath)
+    ) {
       continue;
     }
     seen.add(recent.filePath);
@@ -318,10 +323,12 @@ export const useDirectoryStore = create<DirectoryStoreState>((set, get) => ({
         throw new AppError('VALIDATION', `Приложение «${normalized}» уже есть в списке`);
       }
 
+      if (current.name !== normalized) {
+        await renameDirectoryNameInTasks('application', current.name, normalized);
+      }
+
       const next = sortApplications(
-        get().applications.map((item) =>
-          item.id === id ? { ...item, name: normalized } : item,
-        ),
+        get().applications.map((item) => (item.id === id ? { ...item, name: normalized } : item)),
       );
       set({ applications: next });
 
@@ -422,6 +429,10 @@ export const useDirectoryStore = create<DirectoryStoreState>((set, get) => ({
       );
       if (exists) {
         throw new AppError('VALIDATION', `Модуль «${normalized}» уже есть в списке`);
+      }
+
+      if (current.name !== normalized) {
+        await renameDirectoryNameInTasks('module', current.name, normalized);
       }
 
       const next = sortModules(

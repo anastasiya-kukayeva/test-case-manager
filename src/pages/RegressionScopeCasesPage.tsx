@@ -37,7 +37,6 @@ import {
   type RegressionImportTaskRef,
 } from '@/application/import/regressionReportImportActions';
 import { projectActions } from '@/application/project/projectActions';
-import { nextTestCaseNumber } from '@/application/testCases/renumberTestCases';
 import { testCaseActions } from '@/application/testCases/testCaseActions';
 import { DuplicateTestCaseModal } from '@/components/testCases/DuplicateTestCaseModal';
 import { RegressionSearchField } from '@/components/testCases/RegressionSearchField';
@@ -143,9 +142,7 @@ export function RegressionScopeCasesPage() {
   const [error, setError] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [duplicateSource, setDuplicateSource] = useState<RegressionCaseItem | null>(null);
-  const [duplicateSuggestedNumber, setDuplicateSuggestedNumber] = useState('1');
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [leavingIds, setLeavingIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -434,23 +431,12 @@ export function RegressionScopeCasesPage() {
     }
   };
 
-  const openDuplicate = async (row: TestCasesListRow) => {
+  const openDuplicate = (row: TestCasesListRow) => {
     const item = caseById.get(row.id);
     if (!item) {
       return;
     }
-    setDuplicatingId(row.id);
-    try {
-      const ok = await ensureTaskOpen(item);
-      if (!ok) {
-        return;
-      }
-      const open = useProjectStore.getState().current;
-      setDuplicateSuggestedNumber(nextTestCaseNumber(open?.document.testCases ?? []));
-      setDuplicateSource(item);
-    } finally {
-      setDuplicatingId(null);
-    }
+    setDuplicateSource(item);
   };
 
   const changeOutcome = async (row: TestCasesListRow, outcome: TestResultOutcome) => {
@@ -668,7 +654,6 @@ export function RegressionScopeCasesPage() {
               leavingIds={leavingIds}
               openingId={openingId}
               deletingId={deletingId}
-              duplicatingId={duplicatingId}
               emptyText={searchQuery.trim() ? 'Ничего не найдено' : 'Нет кейсов'}
             />
           </Card>
@@ -679,17 +664,26 @@ export function RegressionScopeCasesPage() {
         opened={Boolean(duplicateSource)}
         sourceNumber={duplicateSource?.number}
         sourceLabel={duplicateLabel}
-        suggestedNumber={duplicateSuggestedNumber}
         onClose={() => setDuplicateSource(null)}
-        onConfirm={(number) => {
+        onConfirm={async (target) => {
           if (!duplicateSource || !mode) {
             return;
           }
-          const created = testCaseActions.duplicate(duplicateSource.id, number);
-          setDuplicateSource(null);
-          if (created) {
-            void navigate(testCaseEditorPath(created.id), { state: editorState(mode) });
+          const created = await testCaseActions.copyToTask({
+            caseId: duplicateSource.id,
+            sourceTaskId: duplicateSource.taskId,
+            sourceFilePath: duplicateSource.taskFilePath,
+            target,
+          });
+          if (!created) {
+            return;
           }
+          setDuplicateSource(null);
+          if (target.current) {
+            void navigate(testCaseEditorPath(created.id), { state: editorState(mode) });
+            return;
+          }
+          void navigate(testCaseEditorPath(created.id));
         }}
       />
     </Stack>

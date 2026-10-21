@@ -17,6 +17,7 @@
 import { inlineVerificationAttachments } from '@/application/testCases/testCaseFormMapper';
 import type { ExportSettings, NamedLink, TaskDocument, TestCase } from '@/domain/types';
 import { isImageAttachment } from '@/domain/types/attachment';
+import { BODY_START_PAGE, estimateRisksTocPage } from '@/templates/pmi/risksTocPage';
 import {
   FONT,
   PAGE_HEIGHT_TWIPS,
@@ -48,16 +49,6 @@ type TocEntry = {
   page: number;
 };
 
-/** Page 1 = title, page 2 = TOC, body starts at page 3 (sections flow continuously). */
-const BODY_START_PAGE = 3;
-
-function estimateRisksTocPage(testCaseCount: number, hasPrecedingBody: boolean): number {
-  if (!hasPrecedingBody) {
-    return BODY_START_PAGE;
-  }
-  const bodyPages = Math.max(1, testCaseCount);
-  return BODY_START_PAGE + bodyPages;
-}
 function titleParagraph(text: string): Paragraph {
   return new Paragraph({
     alignment: AlignmentType.CENTER,
@@ -293,7 +284,12 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
     tocEntries.push({
       id: 'toc-risks',
       title: 'Риски и ограничения',
-      page: estimateRisksTocPage(testCases.length, sectionPlan.length > 0),
+      page: await estimateRisksTocPage({
+        sections: sectionPlan.map((section) => section.kind),
+        meta,
+        testCases,
+        settings,
+      }),
     });
   }
 
@@ -383,8 +379,7 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
         });
         const hasVerification =
           hasRichText(verification) ||
-          (settings.includeImages &&
-            Boolean(verification.html?.includes('data:image')));
+          (settings.includeImages && Boolean(verification.html?.includes('data:image')));
         if (hasVerification) {
           children.push(labelParagraph('Результат проверки:'));
           children.push(...verificationBlocks);
@@ -400,9 +395,7 @@ export async function buildPmiDocx(context: PmiDocxExportContext): Promise<Uint8
           children.push(
             new Paragraph({
               spacing: { before: 0, after: 160 },
-              children: [
-                run(`Результат тестирования: ${outcomeLabel(testCase)}.`, { bold: true }),
-              ],
+              children: [run(`Результат тестирования: ${outcomeLabel(testCase)}.`, { bold: true })],
             }),
           );
         }
@@ -505,4 +498,3 @@ export async function buildTestCaseDocx(context: {
     settings: context.settings,
   });
 }
-

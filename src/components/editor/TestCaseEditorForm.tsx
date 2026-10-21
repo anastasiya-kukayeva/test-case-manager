@@ -1,19 +1,9 @@
-import {
-  Accordion,
-  Button,
-  Checkbox,
-  Group,
-  Stack,
-  Text,
-  TextInput,
-} from '@mantine/core';
+import { Accordion, Button, Checkbox, Group, Stack, Text, TextInput } from '@mantine/core';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { IconDeviceFloppy, IconEye } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import {
-  testCaseToFormValues,
-} from '@/application/testCases/testCaseFormMapper';
+import { testCaseToFormValues } from '@/application/testCases/testCaseFormMapper';
 import { EditorSection } from '@/components/editor/EditorSection';
 import { FormRichTextEditor } from '@/components/editor/FormRichTextEditor';
 import { ProseTextarea } from '@/components/editor/ProseTextarea';
@@ -126,7 +116,9 @@ export function TestCaseEditorForm({
               </Text>
               <Text size="sm" c="dimmed">
                 {taskName ? `Задача: ${taskName}` : null}
-                {isDirty ? ' · есть несохранённые изменения (автосохранение…)' : ' · изменения сохранены в задачу'}
+                {isDirty
+                  ? ' · есть несохранённые изменения (автосохранение…)'
+                  : ' · изменения сохранены в задачу'}
               </Text>
             </div>
             <Group>
@@ -150,7 +142,15 @@ export function TestCaseEditorForm({
             defaultValue={
               isPsi
                 ? ['header', 'title', 'steps', 'results']
-                : ['header', 'goal', 'preconditions', 'steps', 'verification', 'outcome', 'regression']
+                : [
+                    'header',
+                    'goal',
+                    'preconditions',
+                    'steps',
+                    'verification',
+                    'outcome',
+                    'regression',
+                  ]
             }
           >
             <EditorSection value="header" title="1. Заголовок теста" description="Номер теста">
@@ -189,7 +189,7 @@ export function TestCaseEditorForm({
                 <EditorSection
                   value="steps"
                   title="2. Шаги воспроизведения"
-                  description="Каждый шаг — текст, снимки, код и логи"
+                  description="Каждый шаг — текст, снимки, код и логи. Порядок меняется перетаскиванием"
                 >
                   <Controller
                     name="psiSteps"
@@ -220,148 +220,152 @@ export function TestCaseEditorForm({
             ) : null}
 
             {isPsi ? null : (
-            <>
-            <EditorSection value="goal" title="2. Цель" description="Описание сценария и изображения">
-              <Controller
-                name="goal"
-                control={control}
-                render={({ field }) => (
-                  <FormRichTextEditor
-                    value={field.value}
-                    onChange={field.onChange}
-                    placeholder="Опишите цель теста…"
-                    error={errors.goal?.message || errors.goal?.root?.message}
+              <>
+                <EditorSection
+                  value="goal"
+                  title="2. Цель"
+                  description="Описание сценария и изображения"
+                >
+                  <Controller
+                    name="goal"
+                    control={control}
+                    render={({ field }) => (
+                      <FormRichTextEditor
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Опишите цель теста…"
+                        error={errors.goal?.message || errors.goal?.root?.message}
+                      />
+                    )}
                   />
-                )}
-              />
-              <div style={{ marginTop: 16 }}>
-                <Controller
-                  name="goalImages"
-                  control={control}
-                  render={({ field }) => (
-                    <ScreenshotsField
-                      label="Изображения к цели"
-                      value={field.value}
-                      onChange={field.onChange}
+                  <div style={{ marginTop: 16 }}>
+                    <Controller
+                      name="goalImages"
+                      control={control}
+                      render={({ field }) => (
+                        <ScreenshotsField
+                          label="Изображения к цели"
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      )}
                     />
-                  )}
-                />
-              </div>
-            </EditorSection>
+                  </div>
+                </EditorSection>
 
-            <EditorSection
-              value="preconditions"
-              title="3. Предварительные условия"
-              description="Что должно быть подготовлено до теста"
-            >
-              <Controller
-                name="preconditions"
-                control={control}
-                render={({ field }) => (
-                  <ProseTextarea
-                    minRows={4}
-                    autosize
-                    placeholder="Например: пользователь авторизован; создан тестовый объект…"
-                    {...field}
+                <EditorSection
+                  value="preconditions"
+                  title="3. Предварительные условия"
+                  description="Что должно быть подготовлено до теста"
+                >
+                  <Controller
+                    name="preconditions"
+                    control={control}
+                    render={({ field }) => (
+                      <ProseTextarea
+                        minRows={4}
+                        autosize
+                        placeholder="Например: пользователь авторизован; создан тестовый объект…"
+                        {...field}
+                      />
+                    )}
                   />
-                )}
-              />
-            </EditorSection>
+                </EditorSection>
 
-            <EditorSection
-              value="steps"
-              title="4. Шаги тестирования"
-              description="Опишите шаги текстом, нумерованным списком и скриншотами"
-            >
-              <Controller
-                name="steps"
-                control={control}
-                render={({ field }) => (
-                  <FormRichTextEditor
-                    value={field.value}
-                    onChange={field.onChange}
-                    placeholder="Опишите шаги тестирования…"
-                    minHeight={180}
-                    allowImages
-                    error={
-                      typeof errors.steps?.message === 'string'
-                        ? errors.steps.message
-                        : errors.steps?.root?.message || errors.steps?.plainText?.message
-                    }
+                <EditorSection
+                  value="steps"
+                  title="4. Шаги тестирования"
+                  description="Опишите шаги текстом, нумерованным списком и скриншотами"
+                >
+                  <Controller
+                    name="steps"
+                    control={control}
+                    render={({ field }) => (
+                      <FormRichTextEditor
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Опишите шаги тестирования…"
+                        minHeight={180}
+                        allowImages
+                        error={
+                          typeof errors.steps?.message === 'string'
+                            ? errors.steps.message
+                            : errors.steps?.root?.message || errors.steps?.plainText?.message
+                        }
+                      />
+                    )}
                   />
-                )}
-              />
-            </EditorSection>
+                </EditorSection>
 
-            <EditorSection
-              value="verification"
-              title="5. Результат проверки"
-              description="Текст, скриншоты, код и логи — в одном поле"
-            >
-              <Controller
-                name="verificationResult"
-                control={control}
-                render={({ field }) => (
-                  <FormRichTextEditor
-                    value={field.value}
-                    onChange={field.onChange}
-                    placeholder="Опишите результат, вставьте скриншот или выделите текст и нажмите «Код» / «Лог»…"
-                    minHeight={220}
-                    maxHeight={420}
-                    allowImages
-                    allowCodeAndLogs
+                <EditorSection
+                  value="verification"
+                  title="5. Результат проверки"
+                  description="Текст, скриншоты, код и логи — в одном поле"
+                >
+                  <Controller
+                    name="verificationResult"
+                    control={control}
+                    render={({ field }) => (
+                      <FormRichTextEditor
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Опишите результат, вставьте скриншот или выделите текст и нажмите «Код» / «Лог»…"
+                        minHeight={220}
+                        maxHeight={420}
+                        allowImages
+                        allowCodeAndLogs
+                      />
+                    )}
                   />
-                )}
-              />
-            </EditorSection>
+                </EditorSection>
 
-            <EditorSection value="outcome" title="6. Результат тестирования">
-              <Controller
-                name="testOutcome"
-                control={control}
-                render={({ field }) => (
-                  <TestOutcomeSelector value={field.value} onChange={field.onChange} />
-                )}
-              />
-            </EditorSection>
+                <EditorSection value="outcome" title="6. Результат тестирования">
+                  <Controller
+                    name="testOutcome"
+                    control={control}
+                    render={({ field }) => (
+                      <TestOutcomeSelector value={field.value} onChange={field.onChange} />
+                    )}
+                  />
+                </EditorSection>
 
-            <EditorSection
-              value="regression"
-              title="7. Регресс"
-              description="Те же отметки, что в колонках «Регресс общий» и «Регресс задачи» в списке регресса"
-            >
-              <Group gap="xl" align="flex-start" wrap="wrap">
-                <Controller
-                  name="includeInRegression"
-                  control={control}
-                  render={({ field }) => (
-                    <Checkbox
-                      label="Добавить в регресс?"
-                      checked={field.value}
-                      onChange={(event) => {
-                        field.onChange(event.currentTarget.checked);
-                      }}
-                      radius={2}
+                <EditorSection
+                  value="regression"
+                  title="7. Регресс"
+                  description="Те же отметки, что в колонках «Регресс общий» и «Регресс задачи» в списке регресса"
+                >
+                  <Group gap="xl" align="flex-start" wrap="wrap">
+                    <Controller
+                      name="includeInRegression"
+                      control={control}
+                      render={({ field }) => (
+                        <Checkbox
+                          label="Добавить в регресс?"
+                          checked={field.value}
+                          onChange={(event) => {
+                            field.onChange(event.currentTarget.checked);
+                          }}
+                          radius={2}
+                        />
+                      )}
                     />
-                  )}
-                />
-                <Controller
-                  name="includeInTaskRegression"
-                  control={control}
-                  render={({ field }) => (
-                    <Checkbox
-                      label="Добавить в регресс задачи?"
-                      checked={field.value}
-                      onChange={(event) => {
-                        field.onChange(event.currentTarget.checked);
-                      }}
-                      radius={2}
+                    <Controller
+                      name="includeInTaskRegression"
+                      control={control}
+                      render={({ field }) => (
+                        <Checkbox
+                          label="Добавить в регресс задачи?"
+                          checked={field.value}
+                          onChange={(event) => {
+                            field.onChange(event.currentTarget.checked);
+                          }}
+                          radius={2}
+                        />
+                      )}
                     />
-                  )}
-                />
-              </Group>
-            </EditorSection>
-            </>
+                  </Group>
+                </EditorSection>
+              </>
             )}
           </Accordion>
         </Stack>

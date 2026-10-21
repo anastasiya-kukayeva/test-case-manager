@@ -29,7 +29,6 @@ import {
   type CatalogTaskGroup,
   type CatalogTestCaseRow,
 } from '@/application/testCases/loadCatalogTestCases';
-import { nextTestCaseNumber } from '@/application/testCases/renumberTestCases';
 import { testCaseActions } from '@/application/testCases/testCaseActions';
 import { projectActions } from '@/application/project/projectActions';
 import { DuplicateTestCaseModal } from '@/components/testCases/DuplicateTestCaseModal';
@@ -69,9 +68,7 @@ export function AllTestCasesPage() {
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [duplicateSource, setDuplicateSource] = useState<CatalogTestCaseRow | null>(null);
-  const [duplicateSuggestedNumber, setDuplicateSuggestedNumber] = useState('1');
   const [searchQuery, setSearchQuery] = useState('');
 
   const reload = useCallback(async () => {
@@ -170,19 +167,8 @@ export function AllTestCasesPage() {
     }
   };
 
-  const openDuplicate = async (row: CatalogTestCaseRow) => {
-    setDuplicatingId(row.id);
-    try {
-      const ok = await ensureTaskOpen(row);
-      if (!ok) {
-        return;
-      }
-      const open = useProjectStore.getState().current;
-      setDuplicateSuggestedNumber(nextTestCaseNumber(open?.document.testCases ?? []));
-      setDuplicateSource(row);
-    } finally {
-      setDuplicatingId(null);
-    }
+  const openDuplicate = (row: CatalogTestCaseRow) => {
+    setDuplicateSource(row);
   };
 
   const changeOutcome = async (row: CatalogTestCaseRow, outcome: TestResultOutcome) => {
@@ -329,7 +315,11 @@ export function AllTestCasesPage() {
                             toggleGroup(group.taskId);
                           }}
                         >
-                          {expanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                          {expanded ? (
+                            <IconChevronDown size={16} />
+                          ) : (
+                            <IconChevronRight size={16} />
+                          )}
                         </ActionIcon>
                         <Text size="sm" fw={600} truncate title={group.taskName}>
                           {group.taskShortLabel}
@@ -391,7 +381,6 @@ export function AllTestCasesPage() {
                           }
                           openingId={openingId}
                           deletingId={deletingId}
-                          duplicatingId={duplicatingId}
                           rowKeyPrefix={`${group.taskId}:`}
                         />
                       </Box>
@@ -410,22 +399,22 @@ export function AllTestCasesPage() {
         sourceLabel={
           duplicateSource?.goal?.plainText?.trim() || duplicateSource?.title?.trim() || ''
         }
-        suggestedNumber={duplicateSuggestedNumber}
         onClose={() => setDuplicateSource(null)}
-        onConfirm={(number) => {
+        onConfirm={async (target) => {
           if (!duplicateSource) {
             return;
           }
-          const created = testCaseActions.duplicate(duplicateSource.id, number);
-          const source = duplicateSource;
-          setDuplicateSource(null);
-          if (created) {
-            if (source.taskFilePath) {
-              void projectActions.saveIfDirty({ silent: true });
-            }
-            void reload();
-            void navigate(testCaseEditorPath(created.id));
+          const created = await testCaseActions.copyToTask({
+            caseId: duplicateSource.id,
+            sourceTaskId: duplicateSource.taskId,
+            sourceFilePath: duplicateSource.taskFilePath,
+            target,
+          });
+          if (!created) {
+            return;
           }
+          setDuplicateSource(null);
+          void navigate(testCaseEditorPath(created.id));
         }}
       />
     </Stack>

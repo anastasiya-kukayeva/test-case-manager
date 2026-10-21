@@ -33,7 +33,8 @@ export const PAGE_MARGIN = {
 } as const;
 
 /** ImageRun transformation uses CSS pixels at 96 DPI (1 px = 15 twips). */
-const TWIPS_PER_PIXEL = 15;
+export const TWIPS_PER_PIXEL = 15;
+export const PAGE_CONTENT_HEIGHT_TWIPS = PAGE_HEIGHT_TWIPS - PAGE_MARGIN.top - PAGE_MARGIN.bottom;
 export const PAGE_CONTENT_WIDTH_PX = Math.max(
   1,
   Math.round((PAGE_WIDTH_TWIPS - PAGE_MARGIN.left - PAGE_MARGIN.right) / TWIPS_PER_PIXEL),
