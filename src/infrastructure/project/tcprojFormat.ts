@@ -232,7 +232,7 @@ export function validateTaskDocument(value: unknown): TaskDocument {
       psiSteps: parsePsiSteps((testCase as { psiSteps?: unknown }).psiSteps),
       psiResults: parsePsiResults((testCase as { psiResults?: unknown }).psiResults),
       includeInReport: testCase.includeInReport !== false,
-      includeInRollbackReport: testCase.includeInRollbackReport === true,
+      includeInRollbackReport: testCase.includeInRollbackReport !== false,
       includeInRegression: testCase.includeInRegression === true,
       includeInTaskRegression: testCase.includeInTaskRegression === true,
       regressionOnly: testCase.regressionOnly === true,

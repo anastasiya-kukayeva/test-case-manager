@@ -32,7 +32,7 @@ describe('regression report header', () => {
     expect(lines[1]).toBe('Проект: BPM-система (CPM)');
     expect(ROLLBACK_REPORT_TABLE_TITLE).toBe('Основные модули и статус проверки после отката:');
     expect(regressionReportFileName('Депозиты', header.conductedAt, 'rollback')).toBe(
-      'Отчёт по регрессионному тестированию отката доработок - Депозиты за октябрь 2026',
+      'Отчет отката доработок - Депозиты за октябрь 2026',
     );
   });
 });

@@ -487,7 +487,7 @@ export function parsedPmiToTestCase(parsed: ParsedPmiTestCase, number: string): 
     includeInReport: true,
     includeInRegression: false,
     includeInTaskRegression: false,
-    includeInRollbackReport: false,
+    includeInRollbackReport: true,
     createdAt: now,
     updatedAt: now,
   };

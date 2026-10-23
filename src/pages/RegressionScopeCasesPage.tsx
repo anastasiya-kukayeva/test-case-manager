@@ -103,7 +103,7 @@ function toDisplayRows(
         ? { ...item.goal, plainText: regressionCaseLabel(item.goal, item.title) }
         : item.goal,
       includeInReport: item.includeInReport !== false,
-      includeInRollbackReport: item.includeInRollbackReport === true,
+      includeInRollbackReport: item.includeInRollbackReport !== false,
       includeInRegression: item.includeInRegression,
       includeInTaskRegression: item.includeInTaskRegression,
       testOutcome: item.testOutcome,
@@ -332,7 +332,7 @@ export function RegressionScopeCasesPage() {
         includeInRollbackReport: boolean;
       }) =>
         kind === 'rollback'
-          ? item.includeInRollbackReport === true
+          ? item.includeInRollbackReport !== false
           : item.includeInReport !== false;
       const included = selection.cases.filter(marked);
       const namedCases = included.length > 0 ? included : selection.cases;

@@ -75,7 +75,7 @@ function buildTestCaseCopy(
     verificationAttachments: structuredClone(existing.verificationAttachments),
     testOutcome: existing.testOutcome,
     includeInReport: existing.includeInReport !== false,
-    includeInRollbackReport: existing.includeInRollbackReport === true,
+    includeInRollbackReport: existing.includeInRollbackReport !== false,
     includeInRegression: existing.includeInRegression,
     includeInTaskRegression: existing.includeInTaskRegression,
     regressionOnly: existing.regressionOnly === true,
@@ -336,7 +336,7 @@ export const testCaseActions = {
       if (!existing) {
         throw new AppError('NOT_FOUND', 'Тест-кейс не найден');
       }
-      if ((existing.includeInRollbackReport === true) === includeInRollbackReport) {
+      if ((existing.includeInRollbackReport !== false) === includeInRollbackReport) {
         return true;
       }
 

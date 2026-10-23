@@ -271,7 +271,7 @@ function SortableTestCaseRow({
             }}
           >
             <IncludeInReportControl
-              value={row.includeInRollbackReport === true}
+              value={row.includeInRollbackReport !== false}
               onChange={
                 onIncludeInRollbackReportChange
                   ? (includeInRollbackReport) => {

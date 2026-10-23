@@ -104,7 +104,7 @@ export function regressionReportFileName(
   const task = taskShortName.trim() || 'Без названия';
   const prefix =
     kind === 'rollback'
-      ? 'Отчёт по регрессионному тестированию отката доработок'
+      ? 'Отчет отката доработок'
       : 'Регрессионный отчет';
   return `${prefix} - ${task} за ${formatConductedAt(conductedAt)}`;
 }

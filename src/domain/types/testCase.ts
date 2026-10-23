@@ -46,7 +46,7 @@ export type TestCase = {
   testOutcome: TestResultOutcome;
   /** Whether the case is marked for a future report. Does not change export yet. */
   includeInReport: boolean;
-  /** Whether the case is included in the rollback report. Absent means no. */
+  /** Whether the case is included in the rollback report. Absent means yes. */
   includeInRollbackReport: boolean;
   /** Marker for the shared regression list. */
   includeInRegression: boolean;

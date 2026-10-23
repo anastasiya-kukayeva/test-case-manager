@@ -176,7 +176,7 @@ export async function loadRegressionCasesByModule(mode: RegressionMode): Promise
         updatedAt: testCase.updatedAt,
         testOutcome: testCase.testOutcome,
         includeInReport: testCase.includeInReport !== false,
-        includeInRollbackReport: testCase.includeInRollbackReport === true,
+        includeInRollbackReport: testCase.includeInRollbackReport !== false,
         includeInRegression: Boolean(testCase.includeInRegression),
         includeInTaskRegression: Boolean(testCase.includeInTaskRegression),
         taskId: task.meta.id,

@@ -103,7 +103,7 @@ export function createEmptyTestCase(partial?: Partial<TestCase>): TestCase {
     verificationAttachments: partial?.verificationAttachments ?? [],
     testOutcome: partial?.testOutcome ?? null,
     includeInReport: partial?.includeInReport ?? true,
-    includeInRollbackReport: partial?.includeInRollbackReport ?? false,
+    includeInRollbackReport: partial?.includeInRollbackReport ?? true,
     includeInRegression: partial?.includeInRegression ?? false,
     includeInTaskRegression: partial?.includeInTaskRegression ?? false,
     regressionOnly: partial?.regressionOnly ?? false,
