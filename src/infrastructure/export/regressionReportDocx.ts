@@ -35,7 +35,11 @@ const MONTHS = [
 
 export const REGRESSION_REPORT_TITLE = 'Отчет по регрессионному тестированию';
 export const REGRESSION_REPORT_TABLE_TITLE = 'Основные модули и статус проверки';
+export const ROLLBACK_REPORT_TITLE = 'Отчёт по регрессионному тестированию отката доработок';
+export const ROLLBACK_REPORT_TABLE_TITLE = 'Основные модули и статус проверки после отката:';
 export const REGRESSION_REPORT_CONCLUSIONS_TITLE = 'Выводы и рекомендации';
+
+export type RegressionReportKind = 'regression' | 'rollback';
 
 const TABLE_HEADERS = ['№', 'Модуль / Подраздел', 'Статус', 'Кол-во багов', 'Комментарий'] as const;
 /** Content width of the A4 page used below, in twips. */
@@ -62,7 +66,9 @@ export type RegressionReportHeader = {
   authorName: string;
   /** Default environment from the directory. */
   environmentName: string;
-  /** Cases marked «Добавить в отчет». */
+  /** Regression keeps the current header. Rollback uses the rollback sample header. */
+  kind?: RegressionReportKind;
+  /** Cases marked for this report. */
   cases: RegressionReportCase[];
 };
 
@@ -85,10 +91,22 @@ function formatConductedAt(date: Date): string {
   return `${month} ${date.getFullYear()}`;
 }
 
+function reportKind(header: Pick<RegressionReportHeader, 'kind'>): RegressionReportKind {
+  return header.kind === 'rollback' ? 'rollback' : 'regression';
+}
+
 /** Suggested file name. A colon is not allowed in a Windows file name, so the title uses a dash. */
-export function regressionReportFileName(taskShortName: string, conductedAt = new Date()): string {
+export function regressionReportFileName(
+  taskShortName: string,
+  conductedAt = new Date(),
+  kind: RegressionReportKind = 'regression',
+): string {
   const task = taskShortName.trim() || 'Без названия';
-  return `Регрессионный отчет - ${task} за ${formatConductedAt(conductedAt)}`;
+  const prefix =
+    kind === 'rollback'
+      ? 'Отчёт по регрессионному тестированию отката доработок'
+      : 'Регрессионный отчет';
+  return `${prefix} - ${task} за ${formatConductedAt(conductedAt)}`;
 }
 
 function projectLine(moduleName: string): string {
@@ -110,14 +128,15 @@ function isWebUrl(value: string): boolean {
   return /^https?:\/\//i.test(value.trim());
 }
 
-/** Header lines of the regression report, in the order of the sample file. */
+/** Header lines of the regression or rollback report, in the order of the sample file. */
 export function regressionReportHeaderLines(header: RegressionReportHeader): string[] {
   const conductedAt = header.conductedAt ?? new Date();
+  const rollback = reportKind(header) === 'rollback';
   return [
-    REGRESSION_REPORT_TITLE,
+    rollback ? ROLLBACK_REPORT_TITLE : REGRESSION_REPORT_TITLE,
     projectLine(header.moduleName),
     `Дата проведения: ${formatConductedAt(conductedAt)}`,
-    'Тип тестирования: Регрессионное',
+    rollback ? 'Тип тестирования: Тестирование отката' : 'Тип тестирования: Регрессионное',
     'Форма: Ручное',
     responsibleLine(header.authorName),
     header.environmentName.trim() ? `Среда: ${header.environmentName.trim()}` : 'Среда:',
@@ -268,11 +287,14 @@ export async function buildRegressionReportDocx(
   header: RegressionReportHeader,
 ): Promise<Uint8Array> {
   const lines = regressionReportHeaderLines(header);
+  const title = lines[0] ?? REGRESSION_REPORT_TITLE;
+  const tableTitle =
+    reportKind(header) === 'rollback' ? ROLLBACK_REPORT_TABLE_TITLE : REGRESSION_REPORT_TABLE_TITLE;
   const children: FileChild[] = [
     new Paragraph({
       alignment: AlignmentType.LEFT,
       spacing: { after: 200 },
-      children: [run(lines[0] ?? REGRESSION_REPORT_TITLE, { bold: true, size: SIZE_TITLE })],
+      children: [run(title, { bold: true, size: SIZE_TITLE })],
     }),
     bodyParagraph(lines[1] ?? ''),
     bodyParagraph(lines[2] ?? ''),
@@ -283,7 +305,7 @@ export async function buildRegressionReportDocx(
     new Paragraph({
       heading: HeadingLevel.HEADING_1,
       spacing: { before: 360, after: 160 },
-      children: [run(REGRESSION_REPORT_TABLE_TITLE, { bold: true, size: SIZE_TITLE })],
+      children: [run(tableTitle, { bold: true, size: SIZE_TITLE })],
     }),
     reportTable(header.cases),
     ...bugSummaryParagraphs(),
@@ -296,7 +318,7 @@ export async function buildRegressionReportDocx(
 
   const doc = new Document({
     creator: 'Test Case Manager',
-    title: REGRESSION_REPORT_TITLE,
+    title,
     styles: {
       default: {
         document: {

@@ -103,6 +103,7 @@ function toDisplayRows(
         ? { ...item.goal, plainText: regressionCaseLabel(item.goal, item.title) }
         : item.goal,
       includeInReport: item.includeInReport !== false,
+      includeInRollbackReport: item.includeInRollbackReport === true,
       includeInRegression: item.includeInRegression,
       includeInTaskRegression: item.includeInTaskRegression,
       testOutcome: item.testOutcome,
@@ -143,7 +144,7 @@ export function RegressionScopeCasesPage() {
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [duplicateSource, setDuplicateSource] = useState<RegressionCaseItem | null>(null);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<'regression' | 'rollback' | null>(null);
   const [importing, setImporting] = useState(false);
   const [leavingIds, setLeavingIds] = useState<ReadonlySet<string>>(() => new Set());
   const hasLoadedRef = useRef(false);
@@ -317,16 +318,23 @@ export function RegressionScopeCasesPage() {
     }
   };
 
-  const exportReport = async () => {
+  const exportReport = async (kind: 'regression' | 'rollback') => {
     if (!useDirectoryStore.getState().isLoaded) {
       await loadDirectory();
     }
     const directory = useDirectoryStore.getState();
     const author = directory.people.find((person) => person.role === 'author' && person.isDefault);
     const environment = directory.environments.find((item) => item.isDefault);
-    setExporting(true);
+    setExporting(kind);
     try {
-      const included = selection.cases.filter((item) => item.includeInReport !== false);
+      const marked = (item: {
+        includeInReport: boolean;
+        includeInRollbackReport: boolean;
+      }) =>
+        kind === 'rollback'
+          ? item.includeInRollbackReport === true
+          : item.includeInReport !== false;
+      const included = selection.cases.filter(marked);
       const namedCases = included.length > 0 ? included : selection.cases;
       const taskShortNames: string[] = [];
       const seenTaskNames = new Set<string>();
@@ -340,21 +348,20 @@ export function RegressionScopeCasesPage() {
         taskShortNames.push(name);
       }
       await exportActions.exportRegressionReport({
+        kind,
         moduleName: selection.moduleName,
         taskShortName: taskShortNames.join(', ') || selection.title,
         authorName: author?.name ?? '',
         environmentName: environment?.name ?? '',
-        cases: selection.cases
-          .filter((item) => item.includeInReport !== false)
-          .map((item) => ({
-            applicationName: item.application,
-            moduleName: item.module === UNASSIGNED_MODULE ? '' : item.module,
-            text: regressionCaseLabel(item.goal, item.title),
-            html: item.goal?.html,
-          })),
+        cases: included.map((item) => ({
+          applicationName: item.application,
+          moduleName: item.module === UNASSIGNED_MODULE ? '' : item.module,
+          text: regressionCaseLabel(item.goal, item.title),
+          html: item.goal?.html,
+        })),
       });
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   };
 
@@ -547,6 +554,24 @@ export function RegressionScopeCasesPage() {
     }
   };
 
+  const changeIncludeInRollbackReport = async (
+    row: TestCasesListRow,
+    includeInRollbackReport: boolean,
+  ) => {
+    const item = caseById.get(row.id);
+    if (!item) {
+      return;
+    }
+    const ok = await ensureTaskOpen(item);
+    if (!ok) {
+      return;
+    }
+    const updated = testCaseActions.setIncludeInRollbackReport(row.id, includeInRollbackReport);
+    if (updated && item.taskFilePath) {
+      await projectActions.save();
+    }
+  };
+
   if (!mode || (!isModule && !isTask)) {
     return (
       <Stack gap="md">
@@ -599,11 +624,22 @@ export function RegressionScopeCasesPage() {
             <Button
               size="sm"
               variant="light"
-              loading={exporting}
+              loading={exporting === 'regression'}
+              disabled={exporting !== null && exporting !== 'regression'}
               leftSection={<IconFileWord size={14} />}
-              onClick={() => void exportReport()}
+              onClick={() => void exportReport('regression')}
             >
-              Экспорт отчета в Word
+              Экспорт отчета по регрессии в Word
+            </Button>
+            <Button
+              size="sm"
+              variant="light"
+              loading={exporting === 'rollback'}
+              disabled={exporting !== null && exporting !== 'rollback'}
+              leftSection={<IconFileWord size={14} />}
+              onClick={() => void exportReport('rollback')}
+            >
+              Экспорт отчета отката в Word
             </Button>
             <Tooltip label="Обновить">
               <ActionIcon variant="default" onClick={() => void reload()} loading={loading}>
@@ -649,6 +685,9 @@ export function RegressionScopeCasesPage() {
               onOutcomeChange={(row, outcome) => void changeOutcome(row, outcome)}
               onIncludeInReportChange={(row, includeInReport) =>
                 void changeIncludeInReport(row, includeInReport)
+              }
+              onIncludeInRollbackReportChange={(row, includeInRollbackReport) =>
+                void changeIncludeInRollbackReport(row, includeInRollbackReport)
               }
               onRegressionChange={(row, patch) => void changeRegression(row, patch)}
               leavingIds={leavingIds}

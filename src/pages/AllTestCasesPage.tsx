@@ -38,6 +38,7 @@ import type { TestResultOutcome } from '@/domain/types';
 import { AppRoutes, testCaseEditorPath } from '@/routes/paths';
 import { useAppStore } from '@/stores/useAppStore';
 import { useProjectStore } from '@/stores/useProjectStore';
+import { useUiStore } from '@/stores/useUiStore';
 
 function findCase(group: CatalogTaskGroup, id: string): CatalogTestCaseRow | undefined {
   return group.testCases.find((item) => item.id === id);
@@ -132,6 +133,7 @@ export function AllTestCasesPage() {
       if (!ok) {
         return;
       }
+      useUiStore.getState().setTaskOpenedFrom('tasks');
       void navigate(AppRoutes.taskCurrent);
     } finally {
       setOpeningId(null);

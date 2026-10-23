@@ -148,6 +148,9 @@ export function RegressionCasesPage() {
           onIncludeInReportChange={(row, includeInReport) => {
             testCaseActions.setIncludeInReport(row.id, includeInReport);
           }}
+          onIncludeInRollbackReportChange={(row, includeInRollbackReport) => {
+            testCaseActions.setIncludeInRollbackReport(row.id, includeInRollbackReport);
+          }}
           onRegressionChange={(row, patch) => {
             testCaseActions.setRegressionFlags(row.id, patch);
           }}

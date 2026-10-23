@@ -333,7 +333,10 @@ export function FormRichTextEditor({
   return (
     <div
       className={`tcm-rich-text-editor${maxHeight ? ' tcm-rich-text-editor--scrollable' : ''}`}
-      style={maxHeight ? { maxHeight } : undefined}
+      style={{
+        ...(maxHeight ? { maxHeight } : {}),
+        ['--tcm-rte-image-max-height' as string]: `${minHeight}px`,
+      }}
     >
       <div className="tcm-rte-toolbar">
         <Group gap={4}>

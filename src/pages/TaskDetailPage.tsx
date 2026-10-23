@@ -33,12 +33,16 @@ import { FadeIn } from '@/components/ui/FadeIn';
 import { getTaskShortLabel } from '@/domain/utils/taskDisplay';
 import { AppRoutes } from '@/routes/paths';
 import { useProjectStore } from '@/stores/useProjectStore';
+import { useUiStore } from '@/stores/useUiStore';
 import { listTemplates, resolveTemplateId } from '@/templates/registry';
 
 export function TaskDetailPage() {
   const navigate = useNavigate();
   const current = useProjectStore((state) => state.current);
   const updateProjectMeta = useProjectStore((state) => state.updateProjectMeta);
+  const openedFromApplications = useUiStore((state) => state.taskOpenedFrom === 'applications');
+  const backTo = openedFromApplications ? AppRoutes.applications : AppRoutes.tasks;
+  const backLabel = openedFromApplications ? 'К списку Приложений' : 'К списку задач';
   const leavingRef = useRef(false);
 
   const leaveTaskPage = useCallback(
@@ -115,9 +119,9 @@ export function TaskDetailPage() {
               size="compact-sm"
               leftSection={<IconArrowLeft size={16} />}
               mb="xs"
-              onClick={() => void leaveTaskPage(AppRoutes.tasks)}
+              onClick={() => void leaveTaskPage(backTo)}
             >
-              К списку задач
+              {backLabel}
             </Button>
             <Title order={2}>{getTaskShortLabel(current.document.meta)}</Title>
             <Text c="dimmed" mt="xs">

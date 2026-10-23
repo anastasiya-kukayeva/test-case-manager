@@ -30,6 +30,9 @@ type UiStoreState = {
   /** Partial-match query shared by the regression lists. */
   regressionSearch: string;
   setRegressionSearch: (query: string) => void;
+  /** Where the open task card was entered from. Tasks list keeps the usual back button. */
+  taskOpenedFrom: 'tasks' | 'applications';
+  setTaskOpenedFrom: (from: 'tasks' | 'applications') => void;
 };
 
 export const useUiStore = create<UiStoreState>((set, get) => ({
@@ -72,4 +75,6 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
     })),
   regressionSearch: '',
   setRegressionSearch: (query) => set({ regressionSearch: query }),
+  taskOpenedFrom: 'tasks',
+  setTaskOpenedFrom: (from) => set({ taskOpenedFrom: from }),
 }));

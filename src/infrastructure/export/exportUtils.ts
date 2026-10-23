@@ -675,9 +675,9 @@ export async function decodeDataUrlImage(dataUrl: string): Promise<DecodedImage 
 }
 
 /**
- * Stretch the image to `targetWidth` (may upscale), keeping aspect ratio.
- * If `maxHeight` is set and the result would be taller, scale down uniformly
- * so the image still fits on the page.
+ * Fit the image inside the page or column, keeping aspect ratio.
+ * Shrink only when it is wider than `targetWidth` or taller than `maxHeight`.
+ * A smaller screenshot keeps its pixel size.
  */
 export function scaleImageToWidth(
   width: number,
@@ -688,7 +688,7 @@ export function scaleImageToWidth(
   const safeWidth = Math.max(width, 1);
   const safeHeight = Math.max(height, 1);
   const pageWidth = Math.max(targetWidth, 1);
-  let ratio = pageWidth / safeWidth;
+  let ratio = Math.min(1, pageWidth / safeWidth);
   if (maxHeight !== undefined && maxHeight > 0) {
     ratio = Math.min(ratio, maxHeight / safeHeight);
   }

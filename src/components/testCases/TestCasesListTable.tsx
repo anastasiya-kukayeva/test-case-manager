@@ -24,7 +24,13 @@ import '@/components/testCases/testCasesTable.css';
 
 export type TestCasesListRow = Pick<
   TestCase,
-  'id' | 'number' | 'title' | 'goal' | 'includeInReport' | 'testOutcome'
+  | 'id'
+  | 'number'
+  | 'title'
+  | 'goal'
+  | 'includeInReport'
+  | 'includeInRollbackReport'
+  | 'testOutcome'
 > & {
   /** Optional second line, for example the task a case was taken from. */
   sourceLabel?: string;
@@ -43,6 +49,10 @@ type TestCasesListTableProps = {
   onDelete?: (row: TestCasesListRow) => void;
   onDuplicate?: (row: TestCasesListRow) => void;
   onIncludeInReportChange?: (row: TestCasesListRow, includeInReport: boolean) => void;
+  onIncludeInRollbackReportChange?: (
+    row: TestCasesListRow,
+    includeInRollbackReport: boolean,
+  ) => void;
   onRegressionChange?: (row: TestCasesListRow, patch: RegressionFlagsChange) => void;
   onOutcomeChange?: (row: TestCasesListRow, outcome: TestResultOutcome) => void;
   /** When set, rows become draggable; called with ids in the new visual order. */
@@ -73,6 +83,10 @@ type SortableRowProps = {
   onDelete?: (row: TestCasesListRow) => void;
   onDuplicate?: (row: TestCasesListRow) => void;
   onIncludeInReportChange?: (row: TestCasesListRow, includeInReport: boolean) => void;
+  onIncludeInRollbackReportChange?: (
+    row: TestCasesListRow,
+    includeInRollbackReport: boolean,
+  ) => void;
   showIncludeInReport: boolean;
   onRegressionChange?: (row: TestCasesListRow, patch: RegressionFlagsChange) => void;
   showRegression: boolean;
@@ -92,6 +106,7 @@ function SortableTestCaseRow({
   onDelete,
   onDuplicate,
   onIncludeInReportChange,
+  onIncludeInRollbackReportChange,
   showIncludeInReport,
   onRegressionChange,
   showRegression,
@@ -231,23 +246,42 @@ function SortableTestCaseRow({
         </>
       ) : null}
       {showIncludeInReport ? (
-        <Table.Td
-          style={{ width: 150 }}
-          onClick={(event) => {
-            event.stopPropagation();
-          }}
-        >
-          <IncludeInReportControl
-            value={row.includeInReport !== false}
-            onChange={
-              onIncludeInReportChange
-                ? (includeInReport) => {
-                    onIncludeInReportChange(row, includeInReport);
-                  }
-                : undefined
-            }
-          />
-        </Table.Td>
+        <>
+          <Table.Td
+            style={{ width: 88 }}
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <IncludeInReportControl
+              value={row.includeInReport !== false}
+              onChange={
+                onIncludeInReportChange
+                  ? (includeInReport) => {
+                      onIncludeInReportChange(row, includeInReport);
+                    }
+                  : undefined
+              }
+            />
+          </Table.Td>
+          <Table.Td
+            style={{ width: 88 }}
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <IncludeInReportControl
+              value={row.includeInRollbackReport === true}
+              onChange={
+                onIncludeInRollbackReportChange
+                  ? (includeInRollbackReport) => {
+                      onIncludeInRollbackReportChange(row, includeInRollbackReport);
+                    }
+                  : undefined
+              }
+            />
+          </Table.Td>
+        </>
       ) : null}
       <Table.Td
         style={{ width: 118 }}
@@ -313,6 +347,7 @@ export function TestCasesListTable({
   onDelete,
   onDuplicate,
   onIncludeInReportChange,
+  onIncludeInRollbackReportChange,
   onRegressionChange,
   onOutcomeChange,
   onReorder,
@@ -351,8 +386,9 @@ export function TestCasesListTable({
 
   const showIncludeInReport = Boolean(onIncludeInReportChange);
   const showRegression = Boolean(onRegressionChange);
-  const columnCount = 4 + (showIncludeInReport ? 1 : 0) + (showRegression ? 2 : 0);
-  const headRowSpan = showRegression ? 2 : undefined;
+  const splitHeader = showRegression || showIncludeInReport;
+  const columnCount = 4 + (showIncludeInReport ? 2 : 0) + (showRegression ? 2 : 0);
+  const headRowSpan = splitHeader ? 2 : undefined;
   const actionsColWidth = 56 + (onDuplicate ? 36 : 0) + (onDelete ? 36 : 0);
 
   const table = (
@@ -377,7 +413,7 @@ export function TestCasesListTable({
               </Table.Th>
             ) : null}
             {showIncludeInReport ? (
-              <Table.Th rowSpan={headRowSpan} style={{ width: 150 }}>
+              <Table.Th colSpan={2} ta="center">
                 Добавить в отчет
               </Table.Th>
             ) : null}
@@ -388,14 +424,28 @@ export function TestCasesListTable({
               {' '}
             </Table.Th>
           </Table.Tr>
-          {showRegression ? (
+          {splitHeader ? (
             <Table.Tr>
-              <Table.Th ta="center" className="tcm-regression-col">
-                Регресс общий
-              </Table.Th>
-              <Table.Th ta="center" className="tcm-regression-col">
-                Регресс задачи
-              </Table.Th>
+              {showRegression ? (
+                <>
+                  <Table.Th ta="center" className="tcm-regression-col">
+                    Регресс общий
+                  </Table.Th>
+                  <Table.Th ta="center" className="tcm-regression-col">
+                    Регресс задачи
+                  </Table.Th>
+                </>
+              ) : null}
+              {showIncludeInReport ? (
+                <>
+                  <Table.Th ta="center" style={{ width: 88 }}>
+                    Регресс
+                  </Table.Th>
+                  <Table.Th ta="center" style={{ width: 88 }}>
+                    Откат
+                  </Table.Th>
+                </>
+              ) : null}
             </Table.Tr>
           ) : null}
         </Table.Thead>
@@ -419,6 +469,7 @@ export function TestCasesListTable({
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
                 onIncludeInReportChange={onIncludeInReportChange}
+                onIncludeInRollbackReportChange={onIncludeInRollbackReportChange}
                 showIncludeInReport={showIncludeInReport}
                 onRegressionChange={onRegressionChange}
                 showRegression={showRegression}

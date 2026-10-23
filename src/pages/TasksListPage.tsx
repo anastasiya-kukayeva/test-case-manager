@@ -25,6 +25,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { notifySuccess } from '@/application/errors/errorHandler';
 import { projectActions } from '@/application/project/projectActions';
+import { overlayOpenTask } from '@/application/project/taskListIdentity';
 import { taskHierarchyActions } from '@/application/project/taskHierarchyActions';
 import { confirmAction } from '@/application/ui/confirmAction';
 import { CreateProjectModal } from '@/components/project/CreateProjectModal';
@@ -96,24 +97,10 @@ export function TasksListPage() {
       filePath: '',
     });
 
-  const tasksForTree = useMemo(() => {
-    if (!current) {
-      return recentProjects;
-    }
-    return recentProjects.map((item) => {
-      const sameFile = Boolean(current.filePath) && item.filePath === current.filePath;
-      const sameId = item.id === current.document.meta.id;
-      if (!sameFile && !sameId) {
-        return item;
-      }
-      return {
-        ...item,
-        name: current.document.meta.name,
-        shortName: current.document.meta.shortName || item.shortName,
-        parentTaskId: current.document.meta.parentTaskId ?? item.parentTaskId,
-      };
-    });
-  }, [recentProjects, current]);
+  const tasksForTree = useMemo(
+    () => overlayOpenTask(recentProjects, current),
+    [recentProjects, current],
+  );
 
   const taskTree = useMemo(() => {
     const tree = buildTaskTree(tasksForTree);
@@ -187,11 +174,13 @@ export function TasksListPage() {
       }
     }
     if (!filePath || filePath.startsWith('__unsaved__')) {
+      useUiStore.getState().setTaskOpenedFrom('tasks');
       void navigate(AppRoutes.taskCurrent);
       return;
     }
     const ok = await projectActions.openRecent(filePath, { preserveRecentOrder: true });
     if (ok) {
+      useUiStore.getState().setTaskOpenedFrom('tasks');
       void navigate(AppRoutes.taskCurrent);
     }
   };
@@ -279,6 +268,7 @@ export function TasksListPage() {
               onClick={() =>
                 void projectActions.open().then((ok) => {
                   if (ok) {
+                    useUiStore.getState().setTaskOpenedFrom('tasks');
                     void navigate(AppRoutes.taskCurrent);
                   }
                 })
@@ -357,7 +347,10 @@ export function TasksListPage() {
                         borderRadius: 'var(--mantine-radius-md)',
                       }}
                       className="tcm-task-list-row"
-                      onClick={() => void navigate(AppRoutes.taskCurrent)}
+                      onClick={() => {
+                        useUiStore.getState().setTaskOpenedFrom('tasks');
+                        void navigate(AppRoutes.taskCurrent);
+                      }}
                     >
                       <div style={{ minWidth: 0 }}>
                         <Group gap={6} wrap="nowrap">
@@ -447,7 +440,10 @@ export function TasksListPage() {
       <CreateProjectModal
         opened={createOpened}
         onClose={() => setCreateOpened(false)}
-        onCreated={() => void navigate(AppRoutes.taskCurrent)}
+        onCreated={() => {
+          useUiStore.getState().setTaskOpenedFrom('tasks');
+          void navigate(AppRoutes.taskCurrent);
+        }}
       />
 
       <MoveTaskModal

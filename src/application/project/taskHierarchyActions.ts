@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid';
 import { AppError } from '@/application/errors/AppError';
 import { notifyError, notifySuccess } from '@/application/errors/errorHandler';
 import { projectActions } from '@/application/project/projectActions';
+import { sameFilePath } from '@/application/project/taskListIdentity';
 import { createEmptyTestCase } from '@/domain/factories/createEntities';
 import type {
   ProjectDocument,
@@ -91,8 +92,8 @@ function isCurrentTask(
   if (!current) {
     return false;
   }
-  if (task.filePath && current.filePath && task.filePath === current.filePath) {
-    return true;
+  if (task.filePath && current.filePath) {
+    return sameFilePath(task.filePath, current.filePath);
   }
   return current.document.meta.id === task.id;
 }
@@ -237,9 +238,9 @@ export const taskHierarchyActions = {
       }
 
       const nextRecent = recent.map((item) => {
-        const sameFile = Boolean(task.filePath) && item.filePath === task.filePath;
-        const sameId = item.id === task.id;
-        if (!sameFile && !sameId) {
+        const sameFile = Boolean(task.filePath) && sameFilePath(item.filePath, task.filePath);
+        const sameUnsaved = !task.filePath && item.id === task.id;
+        if (!sameFile && !sameUnsaved) {
           return item;
         }
         return { ...item, parentTaskId: normalizedParent };

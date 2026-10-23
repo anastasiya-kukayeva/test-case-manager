@@ -1,6 +1,6 @@
 {
   "name": "test-case-manager",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "Desktop Test Case Manager for Windows",
   "main": "dist-electron/main.js",
   "private": true,

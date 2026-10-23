@@ -104,7 +104,7 @@ function EditableImageView({
             ref={imgRef}
             src={src}
             alt={alt}
-            className="tcm-rte-image"
+            className={`tcm-rte-image${storedWidth ? ' tcm-rte-image--sized' : ''}`}
             draggable={false}
             style={{
               width: storedWidth ? `${storedWidth}px` : undefined,

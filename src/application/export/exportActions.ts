@@ -153,14 +153,17 @@ export const exportActions = {
     }
   },
 
-  /** Regression report: header and the cases marked for the report. */
+  /** Regression report or rollback report: header and the cases marked for that report. */
   async exportRegressionReport(header: RegressionReportHeader): Promise<boolean> {
+    const rollback = header.kind === 'rollback';
     try {
       const bytes = await buildRegressionReportDocx(header);
       const savedPath = await saveDocxFile({
         bytes,
-        suggestedName: `${sanitizeFileName(regressionReportFileName(header.taskShortName, header.conductedAt))}.docx`,
-        title: 'Экспорт отчета в Word',
+        suggestedName: `${sanitizeFileName(
+          regressionReportFileName(header.taskShortName, header.conductedAt, header.kind),
+        )}.docx`,
+        title: rollback ? 'Экспорт отчета отката в Word' : 'Экспорт отчета по регрессии в Word',
       });
 
       if (!savedPath) {
@@ -170,7 +173,11 @@ export const exportActions = {
       notifyExportSaved(savedPath, 'DOCX');
       return true;
     } catch (error) {
-      notifyError(error, { title: 'Не удалось экспортировать отчет в Word' });
+      notifyError(error, {
+        title: rollback
+          ? 'Не удалось экспортировать отчет отката в Word'
+          : 'Не удалось экспортировать отчет по регрессии в Word',
+      });
       return false;
     }
   },

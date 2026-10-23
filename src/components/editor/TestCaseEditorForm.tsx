@@ -202,7 +202,7 @@ export function TestCaseEditorForm({
                 <EditorSection
                   value="results"
                   title="3. Результаты"
-                  description="Один номер есть и в ожидаемом, и в фактическом результате"
+                  description="Ожидаемый и фактический результат идут одной парой. Порядок пар меняется перетаскиванием"
                 >
                   <Controller
                     name="psiResults"

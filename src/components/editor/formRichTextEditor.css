@@ -69,6 +69,13 @@
   border: 1px solid var(--mantine-color-gray-3);
 }
 
+/* Pasted screenshots fit the field height; corner resize stores an explicit width. */
+.tcm-rich-text-editor img.tcm-rte-image:not(.tcm-rte-image--sized) {
+  width: auto;
+  max-height: var(--tcm-rte-image-max-height, 140px);
+  object-fit: contain;
+}
+
 .tcm-rte-image-wrap {
   position: relative;
   display: block;

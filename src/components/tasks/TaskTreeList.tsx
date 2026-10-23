@@ -8,6 +8,7 @@ import {
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { sameFilePath } from '@/application/project/taskListIdentity';
 import type { OpenTaskState, RecentTask } from '@/domain/types';
 import { getTaskShortLabel } from '@/domain/utils/taskDisplay';
 import type { TaskTreeNode } from '@/domain/utils/taskTree';
@@ -37,10 +38,10 @@ function isCurrentTask(task: RecentTask, current: OpenTaskState | null): boolean
   if (!current) {
     return false;
   }
-  return (
-    Boolean(current.filePath && current.filePath === task.filePath) ||
-    current.document.meta.id === task.id
-  );
+  if (current.filePath && task.filePath) {
+    return sameFilePath(current.filePath, task.filePath);
+  }
+  return !current.filePath && current.document.meta.id === task.id;
 }
 
 function TaskTreeNodeRow({

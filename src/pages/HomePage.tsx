@@ -6,6 +6,7 @@ import { projectActions } from '@/application/project/projectActions';
 import { CreateProjectModal } from '@/components/project/CreateProjectModal';
 import { FadeIn } from '@/components/ui/FadeIn';
 import { AppRoutes } from '@/routes/paths';
+import { useUiStore } from '@/stores/useUiStore';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -33,6 +34,7 @@ export function HomePage() {
             onClick={() =>
               void projectActions.open().then((ok) => {
                 if (ok) {
+                  useUiStore.getState().setTaskOpenedFrom('tasks');
                   void navigate(AppRoutes.taskCurrent);
                 }
               })
@@ -46,7 +48,10 @@ export function HomePage() {
       <CreateProjectModal
         opened={createOpened}
         onClose={() => setCreateOpened(false)}
-        onCreated={() => void navigate(AppRoutes.taskCurrent)}
+        onCreated={() => {
+          useUiStore.getState().setTaskOpenedFrom('tasks');
+          void navigate(AppRoutes.taskCurrent);
+        }}
       />
     </Stack>
   );

@@ -28,6 +28,7 @@ import { AppRoutes } from '@/routes/paths';
 import { useAppStore } from '@/stores/useAppStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
 import { useProjectStore } from '@/stores/useProjectStore';
+import { useUiStore } from '@/stores/useUiStore';
 
 const UNASSIGNED_LABEL = 'Без приложения';
 
@@ -103,6 +104,7 @@ export function ApplicationsPage() {
         }
       }
 
+      useUiStore.getState().setTaskOpenedFrom('applications');
       void navigate(AppRoutes.taskCurrent);
     } finally {
       setOpeningId(null);
@@ -256,6 +258,7 @@ export function ApplicationsPage() {
         }}
         onCreated={() => {
           void reload();
+          useUiStore.getState().setTaskOpenedFrom('applications');
           void navigate(AppRoutes.taskCurrent);
         }}
       />

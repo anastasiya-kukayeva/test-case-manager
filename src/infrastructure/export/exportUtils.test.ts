@@ -106,7 +106,8 @@ describe('export measurements', () => {
     expect(cssColorToHex('rgb(0, 128, 255)')).toBe('0080FF');
     expect(cssColorToHex('transparent')).toBeUndefined();
 
-    expect(scaleImageToWidth(200, 100, 400)).toEqual({ width: 400, height: 200 });
+    expect(scaleImageToWidth(200, 100, 400)).toEqual({ width: 200, height: 100 });
+    expect(scaleImageToWidth(800, 400, 400)).toEqual({ width: 400, height: 200 });
     expect(scaleImageToWidth(200, 400, 400, 100)).toEqual({ width: 50, height: 100 });
   });
 });

@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
 import { AppError } from '@/application/errors/AppError';
 import { notifyError, notifySuccess, notifyWarning } from '@/application/errors/errorHandler';
+import { separateDuplicateTaskFiles } from '@/application/project/separateDuplicateTaskFiles';
 import { createEmptyProjectDocument } from '@/domain/factories/createEntities';
 import type { NamedLink, ProjectDocument, RecentProject, RichTextContent } from '@/domain/types';
 import { projectFileService } from '@/infrastructure/project/projectFileService';
@@ -49,6 +50,8 @@ export const projectActions = {
       if (!canProceed) {
         return false;
       }
+
+      await separateDuplicateTaskFiles();
 
       const document = createEmptyProjectDocument({
         meta: {
@@ -115,6 +118,8 @@ export const projectActions = {
         return false;
       }
 
+      await separateDuplicateTaskFiles();
+
       const defaultDir = useAppStore.getState().settings.storage.defaultProjectsDirectory ?? undefined;
       const opened = await projectFileService.openWithDialog(defaultDir ?? undefined);
       if (!opened) {
@@ -140,6 +145,8 @@ export const projectActions = {
       if (!canProceed) {
         return false;
       }
+
+      await separateDuplicateTaskFiles();
 
       const opened = await projectFileService.openFromPath(filePath);
       useProjectStore.getState().setCurrentDocument(opened.document, opened.filePath);
@@ -197,9 +204,15 @@ export const projectActions = {
         return this.saveAs({ silent: options?.silent });
       }
 
-      const savedPath = await projectFileService.saveToPath(current.filePath, current.document);
+      await separateDuplicateTaskFiles();
+      const latest = useProjectStore.getState().current;
+      if (!latest?.filePath) {
+        return this.saveAs({ silent: options?.silent });
+      }
+
+      const savedPath = await projectFileService.saveToPath(latest.filePath, latest.document);
       useProjectStore.getState().markSaved(savedPath);
-      await useProjectStore.getState().rememberRecent(toRecent(current.document, savedPath));
+      await useProjectStore.getState().rememberRecent(toRecent(latest.document, savedPath));
       await recoveryService.clear();
       if (!options?.silent) {
         notifySuccess('Задача сохранена');

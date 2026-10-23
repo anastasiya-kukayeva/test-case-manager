@@ -74,6 +74,7 @@ describe('serializeTaskDocument / parseTaskFileContent', () => {
     expect(parsed.meta.testObjectLinks.map((link) => link.title)).toEqual(['Jira', 'Только имя']);
     expect(parsed.testCases[0]?.steps.html).toContain('&lt;форму&gt;');
     expect(parsed.testCases[0]?.includeInReport).toBe(true);
+    expect(parsed.testCases[0]?.includeInRollbackReport).toBe(false);
     expect(parsed.testCases[0]?.includeInRegression).toBe(false);
     expect(parsed.testCases[0]?.regressionOnly).toBe(false);
     expect(parsed.testCases[0]?.author).toBe('');

@@ -75,6 +75,7 @@ function buildTestCaseCopy(
     verificationAttachments: structuredClone(existing.verificationAttachments),
     testOutcome: existing.testOutcome,
     includeInReport: existing.includeInReport !== false,
+    includeInRollbackReport: existing.includeInRollbackReport === true,
     includeInRegression: existing.includeInRegression,
     includeInTaskRegression: existing.includeInTaskRegression,
     regressionOnly: existing.regressionOnly === true,
@@ -324,6 +325,26 @@ export const testCaseActions = {
       return true;
     } catch (error) {
       notifyError(error, { title: 'Не удалось изменить отметку отчёта' });
+      return false;
+    }
+  },
+
+  setIncludeInRollbackReport(id: string, includeInRollbackReport: boolean): boolean {
+    try {
+      const current = requireOpenProject();
+      const existing = current.document.testCases.find((item) => item.id === id);
+      if (!existing) {
+        throw new AppError('NOT_FOUND', 'Тест-кейс не найден');
+      }
+      if ((existing.includeInRollbackReport === true) === includeInRollbackReport) {
+        return true;
+      }
+
+      useProjectStore.getState().updateTestCase(id, { includeInRollbackReport });
+      void projectActions.saveIfDirty({ silent: true });
+      return true;
+    } catch (error) {
+      notifyError(error, { title: 'Не удалось изменить отметку отчёта отката' });
       return false;
     }
   },
