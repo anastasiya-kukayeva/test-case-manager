@@ -127,6 +127,7 @@ export const projectActions = {
       }
 
       useProjectStore.getState().setCurrentDocument(opened.document, opened.filePath);
+      await useAppStore.getState().revealTaskFile(opened.filePath);
       await useProjectStore.getState().rememberRecent(toRecent(opened.document, opened.filePath));
       await recoveryService.clear();
       return true;

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { isHiddenTaskFile } from '@/application/project/taskListIdentity';
 import {
   renumberTestCases,
   reorderTestCasesByIds,
@@ -235,6 +236,9 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
   rememberRecent: async (project, options) => {
     const bumpToFront = options?.bumpToFront ?? true;
+    if (isHiddenTaskFile(project.filePath, useAppStore.getState().hiddenTaskFilePaths)) {
+      return;
+    }
     const workspaceDir = normalizeWorkspaceDirectory(
       useAppStore.getState().settings.storage.defaultProjectsDirectory,
     );

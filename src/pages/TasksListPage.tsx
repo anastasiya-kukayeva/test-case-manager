@@ -10,6 +10,7 @@ import {
   Title,
   Tooltip,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import {
   IconCopy,
   IconArrowsMove,
@@ -23,7 +24,7 @@ import {
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { notifySuccess } from '@/application/errors/errorHandler';
+import { notifyError } from '@/application/errors/errorHandler';
 import { projectActions } from '@/application/project/projectActions';
 import { overlayOpenTask } from '@/application/project/taskListIdentity';
 import { taskHierarchyActions } from '@/application/project/taskHierarchyActions';
@@ -40,7 +41,6 @@ import {
   collectExpandableIds,
   filterTaskTree,
 } from '@/domain/utils/taskTree';
-import { appStorageService } from '@/infrastructure/storage/appStorageService';
 import { normalizeWorkspaceDirectory } from '@/infrastructure/workspace/paths';
 import { AppRoutes } from '@/routes/paths';
 import { useAppStore } from '@/stores/useAppStore';
@@ -79,7 +79,6 @@ export function TasksListPage() {
   const workspaceDir = normalizeWorkspaceDirectory(
     useAppStore((state) => state.settings.storage.defaultProjectsDirectory),
   );
-  const setRecentProjects = useAppStore((state) => state.setRecentProjects);
   const current = useProjectStore((state) => state.current);
   const [createOpened, setCreateOpened] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -139,10 +138,14 @@ export function TasksListPage() {
   const noMatches = !listEmpty && !showUnsaved && taskTree.length === 0;
 
   const handleRemoveRecent = async (filePath: string, name: string) => {
+    if (!filePath || filePath.startsWith('__unsaved__')) {
+      return;
+    }
+
     const confirmed = await confirmAction({
-      title: 'Убрать из недавних?',
-      message: `«${name}» будет удалена только из списка недавних. Файл на диске не затрагивается.`,
-      confirmLabel: 'Убрать',
+      title: 'Удалить из списка задач?',
+      message: `«${name}» исчезнет из списка. Файл в папке задач на компьютере останется.`,
+      confirmLabel: 'Удалить из списка',
       cancelLabel: 'Отмена',
       confirmColor: 'red',
     });
@@ -151,16 +154,16 @@ export function TasksListPage() {
       return;
     }
 
-    const next = recentProjects.filter((item) => item.filePath !== filePath);
-    setRecentProjects(next);
-    if (appStorageService.isAvailable()) {
-      await appStorageService.saveRecentProjects(next);
-      const lastPath = await appStorageService.getLastOpenedProjectPath();
-      if (lastPath === filePath) {
-        await appStorageService.setLastOpenedProjectPath(null);
-      }
+    try {
+      await useAppStore.getState().hideTaskFile(filePath);
+      notifications.show({
+        title: 'Задача убрана из списка',
+        message: `«${name}» больше не показывается в списке. Файл на компьютере не удалён.`,
+        color: 'green',
+      });
+    } catch (error) {
+      notifyError(error, { title: 'Не удалось убрать задачу из списка' });
     }
-    notifySuccess('Убрано из недавних');
   };
 
   const openTask = async (filePath: string | null) => {
@@ -424,11 +427,7 @@ export function TasksListPage() {
                     onOpen={(filePath) => void openTask(filePath)}
                     onCopy={(task) => void handleCopy(task)}
                     onMove={setMoveTask}
-                    onRemove={
-                      workspaceDir
-                        ? undefined
-                        : (filePath, name) => void handleRemoveRecent(filePath, name)
-                    }
+                    onRemove={(filePath, name) => void handleRemoveRecent(filePath, name)}
                   />
                 ) : null}
               </AnimatePresence>

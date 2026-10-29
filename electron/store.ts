@@ -10,6 +10,8 @@ export type ElectronStoreSchema = {
     openedAt: string;
     parentTaskId?: string | null;
   }>;
+  /** Task files kept on disk but omitted from the in-app task list. */
+  hiddenTaskFilePaths: string[];
   lastOpenedProjectPath: string | null;
   windowBounds: {
     width: number;
@@ -73,6 +75,7 @@ export const electronStore = new Store<ElectronStoreSchema>({
   defaults: {
     settings: defaultSettings,
     recentProjects: [],
+    hiddenTaskFilePaths: [],
     lastOpenedProjectPath: null,
     windowBounds: null,
     recoveryMeta: null,

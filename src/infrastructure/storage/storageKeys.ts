@@ -1,6 +1,7 @@
 export const StorageKeys = {
   SETTINGS: 'settings',
   RECENT_PROJECTS: 'recentProjects',
+  HIDDEN_TASK_FILE_PATHS: 'hiddenTaskFilePaths',
   LAST_OPENED_PROJECT_PATH: 'lastOpenedProjectPath',
   WINDOW_BOUNDS: 'windowBounds',
   DIRECTORY_PEOPLE: 'directoryPeople',

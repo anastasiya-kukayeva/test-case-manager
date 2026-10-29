@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   duplicateTaskFilesToReassign,
   overlayOpenTask,
+  withoutHiddenTaskFiles,
 } from '@/application/project/taskListIdentity';
 import type { RecentTask } from '@/domain/types';
 
@@ -13,6 +14,19 @@ function task(partial: Pick<RecentTask, 'id' | 'filePath' | 'name'> & Partial<Re
     ...partial,
   };
 }
+
+describe('withoutHiddenTaskFiles', () => {
+  it('keeps every task when nothing is hidden', () => {
+    const tasks = [task({ id: 'a', filePath: 'D:/tasks/a.tctask', name: 'А' })];
+    expect(withoutHiddenTaskFiles(tasks, [])).toEqual(tasks);
+  });
+
+  it('drops a hidden file without touching the rest of the list', () => {
+    const source = task({ id: 'a', filePath: 'D:\\tasks\\a.tctask', name: 'А' });
+    const other = task({ id: 'b', filePath: 'D:/tasks/b.tctask', name: 'Б' });
+    expect(withoutHiddenTaskFiles([source, other], ['D:/tasks/a.tctask'])).toEqual([other]);
+  });
+});
 
 describe('duplicateTaskFilesToReassign', () => {
   it('gives a new id only to the copied file', () => {

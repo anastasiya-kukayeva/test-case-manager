@@ -31,6 +31,7 @@ import {
   SIZE_H2,
   SIZE_TITLE,
   fromRichContent,
+  pageBreak,
   pageOfFooter,
   run,
 } from '@/templates/shared/docx';
@@ -350,7 +351,7 @@ export type PsiCombinedModule = {
   documents: TaskDocument[];
 };
 
-/** One landscape table: the module name as stored, then the cases of the tasks in that module. */
+/** Landscape tables, one module per sheet: the module name, then that module's cases. */
 export async function buildPsiCombinedDocx(context: {
   groups: PsiCombinedModule[];
   settings: ExportSettings;
@@ -369,28 +370,30 @@ export async function buildPsiCombinedDocx(context: {
     }),
   ];
 
-  const rows: TableRow[] = [tableHeaderRow()];
   const orderedGroups = [...groups]
     .filter((group) => group.documents.length > 0)
     .sort((left, right) => compareModuleNames(left.moduleName, right.moduleName));
-  for (const group of orderedGroups) {
-    rows.push(moduleHeadingRow(group.moduleName));
+  for (let groupIndex = 0; groupIndex < orderedGroups.length; groupIndex += 1) {
+    const group = orderedGroups[groupIndex];
+    if (groupIndex > 0) {
+      bodyChildren.push(pageBreak());
+    }
+    const rows: TableRow[] = [tableHeaderRow(), moduleHeadingRow(group.moduleName)];
     for (const document of group.documents) {
       const testCases = exportCases(document);
       for (let index = 0; index < testCases.length; index += 1) {
         rows.push(await testCaseRow(testCases[index], String(index + 1), settings));
       }
     }
+    bodyChildren.push(
+      new Table({
+        width: { size: LANDSCAPE_CONTENT_WIDTH_TWIPS, type: WidthType.DXA },
+        columnWidths: [...COLUMN_WIDTHS],
+        layout: TableLayoutType.FIXED,
+        rows,
+      }),
+    );
   }
-
-  bodyChildren.push(
-    new Table({
-      width: { size: LANDSCAPE_CONTENT_WIDTH_TWIPS, type: WidthType.DXA },
-      columnWidths: [...COLUMN_WIDTHS],
-      layout: TableLayoutType.FIXED,
-      rows,
-    }),
-  );
 
   const doc = new Document({
     creator: 'Test Case Manager',

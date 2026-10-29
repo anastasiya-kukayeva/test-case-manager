@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { notifyError } from '@/application/errors/errorHandler';
+import { isHiddenTaskFile, withoutHiddenTaskFiles } from '@/application/project/taskListIdentity';
 import { DEFAULT_APP_SETTINGS, type AppSettings, type RecentProject } from '@/domain/types';
 import { appStorageService } from '@/infrastructure/storage/appStorageService';
 import { normalizeWorkspaceDirectory } from '@/infrastructure/workspace/paths';
@@ -8,6 +9,7 @@ import { readWorkspaceTaskList } from '@/infrastructure/workspace/workspaceCatal
 type AppStoreState = {
   settings: AppSettings;
   recentProjects: RecentProject[];
+  hiddenTaskFilePaths: string[];
   isInitialized: boolean;
   isLoading: boolean;
   initialize: () => Promise<void>;
@@ -15,6 +17,8 @@ type AppStoreState = {
   updateSettings: (partial: Partial<AppSettings>) => Promise<void>;
   setRecentProjects: (projects: RecentProject[]) => void;
   refreshRecentProjects: () => Promise<boolean>;
+  hideTaskFile: (filePath: string) => Promise<void>;
+  revealTaskFile: (filePath: string) => Promise<void>;
 };
 
 let ongoingInitialize: Promise<void> | null = null;
@@ -22,6 +26,7 @@ let ongoingInitialize: Promise<void> | null = null;
 export const useAppStore = create<AppStoreState>((set, get) => ({
   settings: DEFAULT_APP_SETTINGS,
   recentProjects: [],
+  hiddenTaskFilePaths: [],
   isInitialized: false,
   isLoading: false,
 
@@ -41,15 +46,17 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
           set({
             settings: DEFAULT_APP_SETTINGS,
             recentProjects: [],
+            hiddenTaskFilePaths: [],
             isInitialized: true,
             isLoading: false,
           });
           return;
         }
 
-        const [settings, storedRecent] = await Promise.all([
+        const [settings, storedRecent, hiddenTaskFilePaths] = await Promise.all([
           appStorageService.getSettings(),
           appStorageService.getRecentProjects(),
+          appStorageService.getHiddenTaskFilePaths(),
         ]);
 
         let recentProjects = storedRecent;
@@ -62,10 +69,12 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
             recentProjects = [];
           }
         }
+        recentProjects = withoutHiddenTaskFiles(recentProjects, hiddenTaskFilePaths);
 
         set({
           settings,
           recentProjects,
+          hiddenTaskFilePaths,
           isInitialized: true,
           isLoading: false,
         });
@@ -74,6 +83,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
         set({
           settings: DEFAULT_APP_SETTINGS,
           recentProjects: [],
+          hiddenTaskFilePaths: [],
           isInitialized: true,
           isLoading: false,
         });
@@ -137,8 +147,12 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       }
 
       const workspaceDir = normalizeWorkspaceDirectory(get().settings.storage.defaultProjectsDirectory);
+      const hiddenTaskFilePaths = get().hiddenTaskFilePaths;
       if (workspaceDir) {
-        const recentProjects = await readWorkspaceTaskList(workspaceDir);
+        const recentProjects = withoutHiddenTaskFiles(
+          await readWorkspaceTaskList(workspaceDir),
+          hiddenTaskFilePaths,
+        );
         if (
           normalizeWorkspaceDirectory(get().settings.storage.defaultProjectsDirectory) !== workspaceDir
         ) {
@@ -148,7 +162,10 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
         return true;
       }
 
-      const recentProjects = await appStorageService.getRecentProjects();
+      const recentProjects = withoutHiddenTaskFiles(
+        await appStorageService.getRecentProjects(),
+        hiddenTaskFilePaths,
+      );
       set({ recentProjects });
       return true;
     } catch (error) {
@@ -158,5 +175,33 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       }
       return false;
     }
+  },
+
+  hideTaskFile: async (filePath) => {
+    const hiddenTaskFilePaths = appStorageService.isAvailable()
+      ? await appStorageService.hideTaskFilePath(filePath)
+      : [...get().hiddenTaskFilePaths, filePath];
+    set({
+      hiddenTaskFilePaths,
+      recentProjects: withoutHiddenTaskFiles(get().recentProjects, hiddenTaskFilePaths),
+    });
+    if (!normalizeWorkspaceDirectory(get().settings.storage.defaultProjectsDirectory)) {
+      if (appStorageService.isAvailable()) {
+        await appStorageService.saveRecentProjects(get().recentProjects);
+      }
+    }
+    if (appStorageService.isAvailable()) {
+      const lastPath = await appStorageService.getLastOpenedProjectPath();
+      if (lastPath && isHiddenTaskFile(lastPath, hiddenTaskFilePaths)) {
+        await appStorageService.setLastOpenedProjectPath(null);
+      }
+    }
+  },
+
+  revealTaskFile: async (filePath) => {
+    const hiddenTaskFilePaths = appStorageService.isAvailable()
+      ? await appStorageService.revealTaskFilePath(filePath)
+      : get().hiddenTaskFilePaths.filter((item) => item !== filePath);
+    set({ hiddenTaskFilePaths });
   },
 }));

@@ -61,6 +61,23 @@ type OpenTaskNames = {
   };
 };
 
+/** Drop tasks whose files were removed from the list. The files themselves stay on disk. */
+export function withoutHiddenTaskFiles<T extends { filePath: string }>(
+  tasks: T[],
+  hiddenPaths: string[],
+): T[] {
+  if (hiddenPaths.length === 0) {
+    return tasks;
+  }
+  return tasks.filter(
+    (task) => !hiddenPaths.some((hidden) => sameFilePath(hidden, task.filePath)),
+  );
+}
+
+export function isHiddenTaskFile(filePath: string, hiddenPaths: string[]): boolean {
+  return hiddenPaths.some((hidden) => sameFilePath(hidden, filePath));
+}
+
 /** Live title of the open task replaces only the row of that same file. */
 export function overlayOpenTask(tasks: RecentTask[], current: OpenTaskNames | null): RecentTask[] {
   if (!current?.filePath) {

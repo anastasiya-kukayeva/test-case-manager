@@ -80,6 +80,11 @@ function mergeSettings(raw: Partial<AppSettings> | undefined): AppSettings {
   };
 }
 
+function sameStoredPath(left: string, right: string): boolean {
+  const normalize = (value: string) => value.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  return normalize(left) === normalize(right);
+}
+
 const mirroredWorkspaceDirs = new Set<string>();
 
 export function invalidateWorkspaceBinding(): void {
@@ -261,6 +266,33 @@ export const appStorageService = {
 
   async saveSettings(settings: AppSettings): Promise<void> {
     await storeSet(StorageKeys.SETTINGS, settings);
+  },
+
+  async getHiddenTaskFilePaths(): Promise<string[]> {
+    const paths = await storeGet<string[]>(StorageKeys.HIDDEN_TASK_FILE_PATHS);
+    if (!Array.isArray(paths)) {
+      return [];
+    }
+    return paths.filter((item) => typeof item === 'string' && item.trim());
+  },
+
+  async hideTaskFilePath(filePath: string): Promise<string[]> {
+    const current = await this.getHiddenTaskFilePaths();
+    if (current.some((item) => sameStoredPath(item, filePath))) {
+      return current;
+    }
+    const next = [...current, filePath];
+    await storeSet(StorageKeys.HIDDEN_TASK_FILE_PATHS, next);
+    return next;
+  },
+
+  async revealTaskFilePath(filePath: string): Promise<string[]> {
+    const current = await this.getHiddenTaskFilePaths();
+    const next = current.filter((item) => !sameStoredPath(item, filePath));
+    if (next.length !== current.length) {
+      await storeSet(StorageKeys.HIDDEN_TASK_FILE_PATHS, next);
+    }
+    return next;
   },
 
   async getRecentProjects(): Promise<RecentProject[]> {

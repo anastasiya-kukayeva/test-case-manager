@@ -17,6 +17,7 @@ import {
 import { IconAlertCircle, IconArrowLeft, IconRefresh } from '@tabler/icons-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { projectActions } from '@/application/project/projectActions';
 import {
   isRegressionMode,
   loadRegressionCasesByModule,
@@ -53,11 +54,13 @@ function matchingCaseCount(cases: RegressionCaseItem[], query: string): number {
 function RegressionTaskLinks({
   tasks,
   query,
-  onOpen,
+  onOpenTask,
+  onOpenCases,
 }: {
   tasks: RegressionTaskGroup[];
   query: string;
-  onOpen: (task: RegressionTaskGroup) => void;
+  onOpenTask: (task: RegressionTaskGroup) => void;
+  onOpenCases: (task: RegressionTaskGroup) => void;
 }) {
   const visible = tasks
     .map((task) => ({ task, count: matchingCaseCount(task.cases, query) }))
@@ -74,31 +77,40 @@ function RegressionTaskLinks({
   return (
     <Stack gap="xs">
       {visible.map(({ task, count }) => (
-        <UnstyledButton
+        <Group
           key={task.taskId}
-          onClick={() => onOpen(task)}
-          aria-label={`Открыть кейсы задачи ${task.taskShortLabel}`}
+          justify="space-between"
+          wrap="nowrap"
           style={{
-            width: '100%',
             border: '1px solid var(--mantine-color-default-border)',
             borderRadius: 'var(--mantine-radius-md)',
             padding: '10px 12px',
           }}
         >
-          <Group justify="space-between" wrap="nowrap">
-            <div>
-              <Text fw={600} lineClamp={1}>
-                {task.taskShortLabel}
+          <UnstyledButton
+            className="tcm-task-name-link"
+            aria-label={`Открыть задачу ${task.taskShortLabel}`}
+            onClick={() => onOpenTask(task)}
+            style={{ flex: 1, minWidth: 0, textAlign: 'left' }}
+          >
+            <Text fw={600} lineClamp={1}>
+              {task.taskShortLabel}
+            </Text>
+            {task.taskShortLabel !== task.taskName ? (
+              <Text size="xs" c="dimmed" lineClamp={1}>
+                {task.taskName}
               </Text>
-              {task.taskShortLabel !== task.taskName ? (
-                <Text size="xs" c="dimmed" lineClamp={1}>
-                  {task.taskName}
-                </Text>
-              ) : null}
-            </div>
-            <Badge variant="light">{count}</Badge>
-          </Group>
-        </UnstyledButton>
+            ) : null}
+          </UnstyledButton>
+          <Tooltip label="Открыть кейсы задачи">
+            <UnstyledButton
+              aria-label={`Открыть кейсы задачи ${task.taskShortLabel}`}
+              onClick={() => onOpenCases(task)}
+            >
+              <Badge variant="light">{count}</Badge>
+            </UnstyledButton>
+          </Tooltip>
+        </Group>
       ))}
     </Stack>
   );
@@ -184,6 +196,28 @@ export function RegressionBrowsePage() {
     void navigate(regressionModuleCasesPath(mode, moduleName));
   };
 
+  const openTaskCard = async (task: RegressionTaskGroup) => {
+    const open = useProjectStore.getState().current;
+    const sameTask =
+      Boolean(open) &&
+      ((task.taskFilePath && open?.filePath === task.taskFilePath) ||
+        open?.document.meta.id === task.taskId);
+
+    if (!sameTask) {
+      if (!task.taskFilePath || task.taskFilePath.startsWith('__unsaved__')) {
+        setError('Файл задачи не сохранён — откройте задачу вручную.');
+        return;
+      }
+      const ok = await projectActions.openRecent(task.taskFilePath, { preserveRecentOrder: true });
+      if (!ok) {
+        return;
+      }
+    }
+
+    useUiStore.getState().setTaskOpenedFrom('tasks');
+    void navigate(AppRoutes.taskCurrent);
+  };
+
   const openTaskCases = (task: RegressionTaskGroup, moduleName: string | null) => {
     if (!mode) {
       return;
@@ -236,7 +270,8 @@ export function RegressionBrowsePage() {
             <Title order={2}>{title}</Title>
             <Text c="dimmed" mt="xs">
               Кейсы с отметкой «{checkboxLabel}». Клик по модулю раскрывает задачи. Повторный клик
-              открывает все кейсы модуля. Клик по задаче открывает её кейсы.
+              открывает все кейсы модуля. Клик по названию задачи открывает её карточку, клик по
+              числу — её кейсы.
             </Text>
           </div>
           <Tooltip label="Обновить">
@@ -336,7 +371,8 @@ export function RegressionBrowsePage() {
                           <RegressionTaskLinks
                             tasks={moduleGroup.tasks}
                             query={searchQuery}
-                            onOpen={(task) => openTaskCases(task, moduleGroup.moduleName)}
+                            onOpenTask={(task) => void openTaskCard(task)}
+                            onOpenCases={(task) => openTaskCases(task, moduleGroup.moduleName)}
                           />
                         </Accordion.Panel>
                       </Accordion.Item>
@@ -350,7 +386,8 @@ export function RegressionBrowsePage() {
                   <RegressionTaskLinks
                     tasks={groups.unassigned}
                     query={searchQuery}
-                    onOpen={(task) => openTaskCases(task, null)}
+                    onOpenTask={(task) => void openTaskCard(task)}
+                    onOpenCases={(task) => openTaskCases(task, null)}
                   />
                 </Card>
               </Tabs.Panel>

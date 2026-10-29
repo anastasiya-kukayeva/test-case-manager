@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Alert,
   Button,
   Card,
@@ -8,7 +9,7 @@ import {
   Text,
   Title,
   Tooltip,
-  ActionIcon,
+  UnstyledButton,
 } from '@mantine/core';
 import {
   IconAlertCircle,
@@ -47,7 +48,7 @@ import {
 import { FadeIn } from '@/components/ui/FadeIn';
 import type { TestResultOutcome } from '@/domain/types';
 import { getTaskShortLabel } from '@/domain/utils/taskDisplay';
-import { regressionBrowsePath, testCaseEditorPath } from '@/routes/paths';
+import { AppRoutes, regressionBrowsePath, testCaseEditorPath } from '@/routes/paths';
 import { useAppStore } from '@/stores/useAppStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
 import { useProjectStore } from '@/stores/useProjectStore';
@@ -205,6 +206,7 @@ export function RegressionScopeCasesPage() {
         cases: moduleGroup ? casesOf(moduleGroup.tasks) : [],
         found: Boolean(moduleGroup),
         showSource: true,
+        task: null as RegressionTaskGroup | null,
       };
     }
     if (isTask) {
@@ -221,6 +223,7 @@ export function RegressionScopeCasesPage() {
         cases: task?.cases ?? [],
         found: Boolean(task),
         showSource: false,
+        task: task ?? null,
       };
     }
     return {
@@ -230,6 +233,7 @@ export function RegressionScopeCasesPage() {
       cases: [] as RegressionCaseItem[],
       found: false,
       showSource: false,
+      task: null as RegressionTaskGroup | null,
     };
   }, [groups, isModule, isTask, scopeId]);
 
@@ -363,6 +367,28 @@ export function RegressionScopeCasesPage() {
     } finally {
       setExporting(null);
     }
+  };
+
+  const openTaskCard = async (task: RegressionTaskGroup) => {
+    const open = useProjectStore.getState().current;
+    const sameTask =
+      Boolean(open) &&
+      ((task.taskFilePath && open?.filePath === task.taskFilePath) ||
+        open?.document.meta.id === task.taskId);
+
+    if (!sameTask) {
+      if (!task.taskFilePath || task.taskFilePath.startsWith('__unsaved__')) {
+        setError('Файл задачи не сохранён — откройте задачу вручную.');
+        return;
+      }
+      const ok = await projectActions.openRecent(task.taskFilePath, { preserveRecentOrder: true });
+      if (!ok) {
+        return;
+      }
+    }
+
+    useUiStore.getState().setTaskOpenedFrom('tasks');
+    void navigate(AppRoutes.taskCurrent);
   };
 
   const back = () => {
@@ -585,6 +611,7 @@ export function RegressionScopeCasesPage() {
     );
   }
 
+  const listedTask = selection.task;
   const title = REGRESSION_MODE_LABELS[mode];
   const checkboxLabel = mode === 'task' ? 'Добавить в регресс задачи?' : 'Добавить в регресс?';
   const duplicateLabel = regressionCaseLabel(duplicateSource?.goal, duplicateSource?.title);
@@ -603,7 +630,20 @@ export function RegressionScopeCasesPage() {
       <FadeIn>
         <Group justify="space-between" align="flex-start">
           <div>
-            <Title order={2}>{selection.title}</Title>
+            {listedTask ? (
+              <Tooltip label="Открыть карточку задачи" position="top-start">
+                <UnstyledButton
+                  className="tcm-task-name-link"
+                  aria-label={`Открыть задачу ${selection.title}`}
+                  onClick={() => void openTaskCard(listedTask)}
+                  style={{ borderRadius: 'var(--mantine-radius-md)' }}
+                >
+                  <Title order={2}>{selection.title}</Title>
+                </UnstyledButton>
+              </Tooltip>
+            ) : (
+              <Title order={2}>{selection.title}</Title>
+            )}
             <Text c="dimmed" mt="xs">
               {title}
               {selection.subtitle ? ` · ${selection.subtitle}` : ''}

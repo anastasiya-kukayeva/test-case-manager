@@ -158,11 +158,11 @@ function TaskTreeNodeRow({
                 </ActionIcon>
               </Tooltip>
               {onRemove ? (
-                <Tooltip label="Убрать из списка">
+                <Tooltip label="Удалить из списка">
                   <ActionIcon
                     variant="subtle"
                     color="red"
-                    aria-label="Убрать из списка"
+                    aria-label="Удалить из списка"
                     disabled={rowBusy}
                     onClick={(event) => {
                       event.stopPropagation();
